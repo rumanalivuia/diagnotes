@@ -1,0 +1,24 @@
+{
+  "name": "@diagnotes/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DiagNotes web app (React + Vite + PWA offline)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/lib.test.js"
+  },
+  "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.6",
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.0",
+    "vite": "^7.0.0",
+    "vite-plugin-pwa": "^1.0.0"
+  }
+}

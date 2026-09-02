@@ -1,0 +1,24 @@
+# DiagNotes Windows desktop app
+#
+# Tauri wraps the built web app (../web/dist). To develop you need the Rust
+# toolchain (rustup) + Node; to produce the .exe installer run:
+#
+#   npm run build           # in ../web (produces ../web/dist)
+#   npm run tauri dev       # dev window
+#   npm run tauri build     # release .exe + MSI (uses updater config below)
+
+{
+  "name": "diagnotes-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

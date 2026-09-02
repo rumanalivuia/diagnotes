@@ -1,0 +1,73 @@
+# See https://tauri.app/reference/config/ for the full schema.
+
+$schema: https://schema.tauri.app/config/2
+productName: DiagNotes
+version: 0.1.0
+identifier: com.diagnotes.app
+
+build:
+  # The Tauri shell serves the production web build. The web app talks to the
+  # sync server at the same origin in dev (vite proxy); in production the
+  # desktop build targets the center's server via the `apiBase` below.
+  beforeDevCommand: npm run dev --prefix ../web
+  devUrl: http://localhost:5173
+  beforeBuildCommand: npm run build --prefix ../web
+  frontendDist: ../web/dist
+
+app:
+  windows:
+    - title: DiagNotes
+      width: 1200
+      height: 800
+      minWidth: 900
+      minHeight: 600
+      resizable: true
+      fullscreen: false
+      # Lab context: allow copy/paste of rich text from the report systems.
+      # Tauri v2 webviews support the async clipboard API; no extra config needed.
+  security:
+    csp: null
+
+# Auto-update: the PRD requires installable .exe with auto-update (no manual
+# reinstall per version). Tauri ships `tauri-plugin-updater` for this. Point
+# `endpoints` at your release feed (GitHub Releases or a static JSON you host):
+#
+#   https://your-center.example.com/updates/{{target}}/{{arch}}/{{current_version}}
+#
+# The JSON must look like:
+#   {
+#     "version": "0.2.0",
+#     "notes": "...",
+#     "pub_date": "2026-09-02T00:00:00Z",
+#     "platforms": {
+#       "windows-x86_64": {
+#         "signature": "<base64 sig from tauri signer>",
+#         "url": "https://.../DiagNotes_0.2.0_x64-setup.exe"
+#       }
+#     }
+#   }
+plugins:
+  updater:
+    pubkey: ""            # ← set your updater public key (tauri signer generate)
+    endpoints:
+      - https://your-center.example.com/updates/{{target}}/{{arch}}/{{current_version}}
+    windows:
+      installMode: passive
+
+bundle:
+  active: true
+  targets:
+    - nsis          # .exe installer (auto-update compatible)
+    - msi
+  icon:
+    - icons/icon.ico
+  publisher: DiagNotes
+  copyright: Copyright © 2026 DiagNotes
+  category: MedicalSoftware
+  shortDescription: Diagnostic comments library
+  longDescription: Fast, searchable storehouse of reusable diagnostic report comments.
+  createUpdaterArtifacts: true   # enables updater-compatible artifacts on build
+
+# Sync server address the desktop app talks to. In dev this is the vite proxy
+# target; override at runtime with an env var or settings screen.
+# Production desktop builds should point here at the center's hosted server.

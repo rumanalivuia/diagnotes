@@ -1,0 +1,22 @@
+{
+  "name": "@diagnotes/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DiagNotes sync server (Node builtins only: node:sqlite, node:http)",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js",
+    "test": "node --test test/api.test.js"
+  },
+  "dependencies": {
+    "jose": "^6.2.10",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

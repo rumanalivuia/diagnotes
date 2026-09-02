@@ -1,0 +1,16 @@
+node_modules
+dist
+data
+*.log
+.DS_Store
+.neon
+.env.local
+.env
+.vercel
+.web.env
+server/data
+web/dist
+.mimosa/
+**/.mimosa/
+graphify-out/
+.agents/

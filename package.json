@@ -1,0 +1,27 @@
+{
+  "name": "diagnotes",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DiagNotes — diagnostic comments library (web + Windows desktop wrapper)",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "server": "npm --workspace server run dev",
+    "web": "npm --workspace web run dev",
+    "test": "npm --workspace server test && npm --workspace web test",
+    "build": "npm --workspace web run build",
+    "vercel-build": "npm run build"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "@neon/config": "^1.2.0",
+    "@neon/env": "^1.2.0",
+    "jose": "^6.2.10",
+    "pg": "^8.23.0"
+  }
+}
