@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import RichTextEditor from './RichTextEditor.jsx';
 import { useDiag } from '../AppContext.jsx';
 import { textOf, emptyDoc } from '../lib/richtext.js';
+import { useModalTrap } from '../lib/modal.js';
 
 const PLACEHOLDER = 'Write the comment exactly as it should appear in the report…';
 
@@ -15,6 +16,7 @@ export default function CommentEditor({ initial, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const titleRef = useRef(null);
+  const modalRef = useModalTrap(true, () => { if (!busy) onClose(); });
 
   useEffect(() => { titleRef.current?.focus(); }, []);
 
@@ -52,7 +54,7 @@ export default function CommentEditor({ initial, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={() => { if (!busy) onClose(); }}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Comment editor">
+      <div ref={modalRef} className="modal modal-wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Comment editor">
         <h2>{initial ? 'Edit comment' : 'New comment'}</h2>
         <p className="sub">
           {type === 'personal'

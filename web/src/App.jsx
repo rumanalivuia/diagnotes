@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDiag } from './AppContext.jsx';
 import Rail from './components/Rail.jsx';
 import TopBar from './components/TopBar.jsx';
@@ -38,6 +38,25 @@ function Shell() {
     setEditing(null);
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Don't trigger shortcuts when typing in an input
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+      if (modalOpen) return;
+      if (e.key === '/' || (e.ctrlKey && e.key === 'k')) {
+        e.preventDefault();
+        document.querySelector('.search-input')?.focus();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        openNew();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalOpen, openNew]);
+
   return (
     <div className="app">
       <Rail onNew={openNew} />
@@ -69,7 +88,36 @@ function Shell() {
 
 export default function App() {
   const { session, booted } = useDiag();
-  if (!booted) return <div className="login-wrap">Loading…</div>;
+  if (!booted) return <SkeletonLoader />;
   if (!session) return <Login />;
   return <Shell />;
+}
+
+function SkeletonLoader() {
+  return (
+    <div className="app">
+      <div className="app-header">
+        <div className="topbar">
+          <div className="skeleton" style={{ width: 80, height: 36, borderRadius: 6 }} />
+          <div className="skeleton" style={{ flex: 1, maxWidth: 620, height: 38, borderRadius: 999 }} />
+        </div>
+      </div>
+      <main className="main">
+        <div className="results-head" style={{ marginBottom: 18 }}>
+          <div className="skeleton" style={{ width: 180, height: 22, borderRadius: 4 }} />
+        </div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="card" style={{ padding: 18 }}>
+            <div className="skeleton" style={{ width: '60%', height: 18, borderRadius: 4, marginBottom: 12 }} />
+            <div className="skeleton" style={{ width: '100%', height: 14, borderRadius: 4, marginBottom: 6 }} />
+            <div className="skeleton" style={{ width: '85%', height: 14, borderRadius: 4, marginBottom: 12 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div className="skeleton" style={{ width: 60, height: 20, borderRadius: 999 }} />
+              <div className="skeleton" style={{ width: 48, height: 20, borderRadius: 999 }} />
+            </div>
+          </div>
+        ))}
+      </main>
+    </div>
+  );
 }

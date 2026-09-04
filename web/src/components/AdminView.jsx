@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useDiag } from '../AppContext.jsx';
 import CommentCard from './CommentCard.jsx';
+import { useModalTrap } from '../lib/modal.js';
 
 export default function AdminView({ onEdit }) {
   const { comments, categories, counts, addCategory, updateCategory, deleteComment, rejectShared, toast } = useDiag();
   const [newCat, setNewCat] = useState('');
   const [rejecting, setRejecting] = useState(null); // comment being rejected
   const [reason, setReason] = useState('');
+  const rejectModalRef = useModalTrap(!!rejecting, () => { setRejecting(null); setReason(''); });
 
   const pending = comments.filter((c) => c.type === 'shared' && c.status === 'pending_approval');
   const rejected = comments.filter((c) => c.type === 'shared' && c.status === 'rejected');
@@ -84,7 +86,7 @@ export default function AdminView({ onEdit }) {
 
       {rejecting && (
         <div className="modal-backdrop" onClick={() => setRejecting(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <div ref={rejectModalRef} className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2>Reject submission</h2>
             <p className="sub">“{rejecting.title}” will not appear in the shared library.</p>
             <div className="field">

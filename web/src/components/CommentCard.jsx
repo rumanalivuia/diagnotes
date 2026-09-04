@@ -8,6 +8,7 @@ export default function CommentCard({ comment, onEdit, onDelete }) {
   const { copyAndTrack, toast, categories, approveShared, rejectShared, submitToShared } = useDiag();
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const cat = categories.find((c) => c.id === comment.category_id);
 
   const isPersonal = comment.type === 'personal';
@@ -35,7 +36,7 @@ export default function CommentCard({ comment, onEdit, onDelete }) {
   }
 
   return (
-    <article className="card" data-testid="comment-card">
+    <article className={`card ${comment.status === 'approved' ? 'card-approved' : comment.status === 'pending_approval' ? 'card-pending' : comment.status === 'rejected' ? 'card-rejected' : ''}`} data-testid="comment-card">
       <div className="card-header">
         <h3 className={`card-title ${isPersonal ? 'type-personal' : ''}`}>{comment.title}</h3>
         <button className={`copy-btn ${copied ? 'done' : ''}`} onClick={handleCopy} aria-label="Copy comment">
@@ -48,7 +49,13 @@ export default function CommentCard({ comment, onEdit, onDelete }) {
         </button>
       </div>
 
-      <div className="card-body">{renderBlocks(comment.body || [])}</div>
+      <div className={`card-body ${expanded ? '' : 'clamped'}`}>{renderBlocks(comment.body || [])}</div>
+      {!expanded && (
+        <button className="expand-btn" onClick={() => setExpanded(true)}>Show more</button>
+      )}
+      {expanded && (
+        <button className="expand-btn" onClick={() => setExpanded(false)}>Show less</button>
+      )}
 
       <div className="card-meta">
         {cat && <span className="chip cat">{cat.name}</span>}
