@@ -93,6 +93,21 @@ export function AppProvider({ children }) {
     await reloadLocal(); // reflect synced rows (incl. any DATA reload that was missed)
   }, [reloadLocal]);
 
+  const loginCenter = useCallback(async (email, password) => {
+    // Legacy single shared HMAC login. Always available server-side, even when
+    // Neon member auth is enabled — kept as the recovery path.
+    const res = await fetch(`${apiBase()}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) throw new Error('Invalid email or password');
+    const data = await res.json();
+    await store.kvSet('token', data.token);
+    setSession({ token: data.token, account: data.account });
+    await afterAuth(data.account);
+  }, [afterAuth]);
+
   const login = useCallback(async (email, password) => {
     if (isNeonAuth) {
       const { error } = await authClient.signIn.email({ email, password });
@@ -254,7 +269,7 @@ export function AppProvider({ children }) {
   }, [comments]);
 
   const value = {
-    session, booted, login, signup, logout, neonEnabled: isNeonAuth,
+    session, booted, login, loginCenter, signup, logout, neonEnabled: isNeonAuth,
     comments, categories, recent, visible, tagCloud, counts, toasts,
     filters, setFilters, view, setView,
     saveComment, deleteComment, copyAndTrack, doSyncNow, reloadLocal,

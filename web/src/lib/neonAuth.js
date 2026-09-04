@@ -1,4 +1,4 @@
-import { createAuthClient } from '@neondatabase/neon-js/auth';
+﻿import { createAuthClient } from '@neondatabase/neon-js/auth';
 import { store } from './store.js';
 
 /**
@@ -15,13 +15,16 @@ import { store } from './store.js';
 const NEON_URL = import.meta.env.VITE_NEON_AUTH_URL;
 export const isNeonAuth = !!NEON_URL;
 
-export const authClient = isNeonAuth
-  ? createAuthClient(NEON_URL, { fetchOptions: { credentials: 'include' } })
-  : null;
+// When VITE_NEON_AUTH_URL is absolute (e.g. https://*.neon.tech/...), the auth
+// service is cross-origin — credentials:'include' is needed for the session
+// cookie to be sent.  On production the URL is a relative path (/neonauth) and
+// the serverless function proxies to the real auth service, making the cookie
+// first-party — no third-party restrictions.
+const isRelative = NEON_URL && !/^https?:\/\//i.test(NEON_URL);
 
-// credentials:'include' is required because the auth service lives on a
-// different origin (*.neon.tech) than the app; without it the session cookie
-// is dropped and token() resolves to undefined.
+export const authClient = isNeonAuth
+  ? createAuthClient(NEON_URL, { fetchOptions: { credentials: isRelative ? 'same-origin' : 'include' } })
+  : null;
 
 let cached = null; // { token, expMs }
 
@@ -61,9 +64,11 @@ export async function getAuthToken() {
 
 export function friendlyAuthError(err, fallback) {
   const msg = err?.message || err?.error?.message || '';
-  if (/neon-token-unavailable/i.test(msg)) return 'Session expired — please sign in again';
+  if (/neon-token-unavailable/i.test(msg)) return 'Session expired - please sign in again';
   if (/invalid email or password|invalid credentials|unauthorized/i.test(msg)) return 'Invalid email or password';
-  if (/user already exists|already.*registered/i.test(msg)) return 'An account with this email already exists — sign in instead';
+  if (/user already exists|already.*registered/i.test(msg)) return 'An account with this email already exists - sign in instead';
   if (/password.*(short|weak|length|8)/i.test(msg)) return 'Password is too short (minimum 8 characters)';
   return msg || fallback;
 }
+
+
