@@ -39,7 +39,7 @@ export default function Login() {
         <div className="field">
           <label htmlFor="email">Center email</label>
           <input id="email" className="input" type="email" autoComplete="username" value={email}
-            onChange={(e) => setEmail(e.target.value)} placeholder="diagnotes@center.local" required />
+            onChange={(e) => setEmail(e.target.value)} placeholder="Center email address" required />
         </div>
         <div className="field">
           <label htmlFor="password">Password</label>
@@ -49,9 +49,11 @@ export default function Login() {
         <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} type="submit">
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
-        <p className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 16, textAlign: 'center' }}>
-          default dev login: diagnotes@center.local / devpassword
-        </p>
+        {import.meta.env.DEV && (
+          <p className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 16, textAlign: 'center' }}>
+            default dev login: diagnotes@center.local / devpassword
+          </p>
+        )}
       </form>
     </div>
   );
