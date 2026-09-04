@@ -65,6 +65,14 @@ describe('findOrProvisionNeonAccount', () => {
     assert.equal(stmts.rows.size, 1);
   });
 
+  it('trims whitespace from email during provisioning', async () => {
+    const stmts = fakeStmts();
+    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-trim', exp: 1, payload: { email: '  spaced@x.com  ' } });
+    assert.ok(s.sub);
+    const row = stmts.rows.get(s.sub);
+    assert.equal(row.email, 'spaced@x.com');
+  });
+
   it('returns null when the token has neither email nor sub', async () => {
     const s = await findOrProvisionNeonAccount(fakeStmts(), { sub: null, exp: 1, payload: {} });
     assert.equal(s, null);

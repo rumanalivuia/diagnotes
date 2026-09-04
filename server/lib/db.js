@@ -133,7 +133,7 @@ async function openPgDb() {
   if (!process.env.DIAGNOTES_EMAIL) throw new Error('[diagnotes] DIAGNOTES_EMAIL environment variable is required for Postgres/production mode');
   if (!process.env.DIAGNOTES_PASSWORD) throw new Error('[diagnotes] DIAGNOTES_PASSWORD environment variable is required for Postgres/production mode');
   const env = {
-    email: process.env.DIAGNOTES_EMAIL,
+    email: (process.env.DIAGNOTES_EMAIL).trim(),
     password: process.env.DIAGNOTES_PASSWORD,
     seedDemo: process.env.DIAGNOTES_SEED_DEMO !== '0',
   };
@@ -156,7 +156,7 @@ function openSqliteDb(dataDir) {
   db.exec('PRAGMA foreign_keys = ON;');
   migrateSqlite(db);
   const env = {
-    email: process.env.DIAGNOTES_EMAIL || 'diagnotes@center.local',
+    email: (process.env.DIAGNOTES_EMAIL || 'diagnotes@center.local').trim(),
     password: process.env.DIAGNOTES_PASSWORD || 'devpassword',
     seedDemo: process.env.DIAGNOTES_SEED_DEMO !== '0',
   };
@@ -320,6 +320,7 @@ function migrateSqlite(db) {
 }
 
 async function seedAccountsPg(pool, email, password) {
+  email = email.trim();
   const res = await pool.query('SELECT id FROM accounts WHERE email = $1', [email]);
   if (res.rows.length) return;
   const salt = randomBytes(16).toString('hex');
@@ -332,6 +333,7 @@ async function seedAccountsPg(pool, email, password) {
 }
 
 function seedAccountsSqlite(db, email, password) {
+  email = email.trim();
   const row = db.prepare('SELECT id FROM accounts WHERE email = ?').get(email);
   if (row) return;
   const salt = randomBytes(16).toString('hex');

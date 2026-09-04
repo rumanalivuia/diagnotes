@@ -37,7 +37,7 @@ async function verifyNeonAuth(token) {
  * (verifyPassword fails on length mismatch).
  */
 export async function findOrProvisionNeonAccount(stmts, neon) {
-  const email = neon.payload?.email;
+  const email = neon.payload?.email?.trim();
   if (email) {
     const acct = await stmts.getAccountByEmail.get(email);
     if (acct) return { sub: acct.id, exp: neon.exp };
@@ -118,7 +118,7 @@ export function buildApi(db, secret) {
       if (p === '/api/auth/login' && method === 'POST') {
         const body = await readBody(req);
         if (!body?.email || !body?.password) return json(res, 400, { error: 'email and password required' });
-        const acct = await stmts.getAccountByEmail.get(body.email);
+        const acct = await stmts.getAccountByEmail.get(body.email.trim());
         if (!acct || !verifyPassword(body.password, acct.password_hash, acct.salt))
           return json(res, 401, { error: 'invalid credentials' });
         const token = createToken(secret, acct.id);

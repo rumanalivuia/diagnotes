@@ -30,10 +30,10 @@ export function blocksFromHtml(el) {
       if (items.length) blocks.push({ t: tag, items });
     } else if (tag === 'div' || tag === 'p' || tag === 'br') {
       const text = node.textContent || '';
-      if (text.trim() || tag !== 'br') blocks.push({ t: 'p', r: [{ x: text }] });
+      if (text.trim() || tag !== 'br') blocks.push({ t: 'p', r: runsFromNode(node) });
     } else {
       const text = node.textContent || '';
-      if (text.trim()) blocks.push({ t: 'p', r: [{ x: text }] });
+      if (text.trim()) blocks.push({ t: 'p', r: runsFromNode(node) });
     }
   }
   return blocks.length ? blocks : [{ t: 'p', r: [{ x: '' }] }];

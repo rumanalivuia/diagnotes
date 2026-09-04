@@ -63,6 +63,16 @@ describe('auth', () => {
     assert.equal(r.body.account.email, 'diagnotes@center.local');
   });
 
+  it('trims whitespace from email on login', async () => {
+    const r = await req('POST', '/api/auth/login', {
+      email: '  diagnotes@center.local  ',
+      password: 'devpassword',
+    });
+    assert.equal(r.status, 200);
+    assert.ok(r.body.token);
+    assert.equal(r.body.account.email, 'diagnotes@center.local');
+  });
+
   it('rejects /api/auth/me without token', async () => {
     const r = await req('GET', '/api/auth/me');
     assert.equal(r.status, 401);
