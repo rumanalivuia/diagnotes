@@ -23,6 +23,10 @@ function req(method, path, body, token) {
 before(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'diagnotes-test-'));
   process.env.DIAGNOTES_SEED_DEMO = '1';
+  // Pin dev credentials explicitly: sqlite fallback defaults apply, but an
+  // ambient .env.local must never leak production creds into tests.
+  process.env.DIAGNOTES_EMAIL = 'diagnotes@center.local';
+  process.env.DIAGNOTES_PASSWORD = 'devpassword';
   const { db } = await openDb(dataDir);
   const secret = readOrCreateSecret(dataDir);
   const api = buildApi(db, secret);
@@ -52,7 +56,7 @@ describe('auth', () => {
   it('logs in with default credentials and returns token', async () => {
     const r = await req('POST', '/api/auth/login', {
       email: 'diagnotes@center.local',
-      password: 'admin123',
+      password: 'devpassword',
     });
     assert.equal(r.status, 200);
     assert.ok(r.body.token);
@@ -67,7 +71,7 @@ describe('auth', () => {
   it('returns account info with valid token', async () => {
     const { body } = await req('POST', '/api/auth/login', {
       email: 'diagnotes@center.local',
-      password: 'admin123',
+      password: 'devpassword',
     });
     const r = await req('GET', '/api/auth/me', null, body.token);
     assert.equal(r.status, 200);
@@ -79,7 +83,7 @@ describe('categories', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'admin123',
+      email: 'diagnotes@center.local', password: 'devpassword',
     });
     token = body.token;
   });
@@ -103,7 +107,7 @@ describe('comments', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'admin123',
+      email: 'diagnotes@center.local', password: 'devpassword',
     });
     token = body.token;
   });
@@ -205,7 +209,7 @@ describe('sync', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'admin123',
+      email: 'diagnotes@center.local', password: 'devpassword',
     });
     token = body.token;
   });
@@ -243,7 +247,7 @@ describe('admin stats', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'admin123',
+      email: 'diagnotes@center.local', password: 'devpassword',
     });
     token = body.token;
   });

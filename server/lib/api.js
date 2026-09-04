@@ -5,12 +5,23 @@ let jwksCache = null;
 async function verifyNeonAuth(token) {
   const jwksUrl = process.env.NEON_AUTH_JWKS_URL;
   if (!jwksUrl || !token || token.split('.').length !== 3) return null;
+  // Constrain tokens to this Neon Auth instance. Per Neon docs the JWT issuer
+  // is the *origin* of NEON_AUTH_BASE_URL (e.g. base
+  // https://ep-xx.aws.neon.tech/neondb/auth -> issuer https://ep-xx.aws.neon.tech).
+  // No `audience` check: Better Auth JWTs carry no aud claim and jose rejects
+  // tokens that lack a claim listed in options — pinning aud would break login.
+  let issuer;
+  try {
+    issuer = new URL(process.env.NEON_AUTH_BASE_URL || jwksUrl).origin;
+  } catch { return null; }
   try {
     const { createRemoteJWKSet, jwtVerify } = await import('jose');
     if (!jwksCache) {
       jwksCache = createRemoteJWKSet(new URL(jwksUrl));
     }
-    const { payload } = await jwtVerify(token, jwksCache, {});
+    // Constrain token to this Neon Auth instance (see issuer derivation above)
+    const jwtOptions = { issuer };
+    const { payload } = await jwtVerify(token, jwksCache, jwtOptions);
     // Neon Auth payload should have sub
     if (!payload.sub) return null;
     return { sub: payload.sub, exp: payload.exp ? payload.exp * 1000 : Date.now() + 3600000, payload };
@@ -53,7 +64,20 @@ export function buildApi(db, secret) {
     // Try Neon Auth first if configured
     if (process.env.NEON_AUTH_JWKS_URL) {
       const neon = await verifyNeonAuth(token);
-      if (neon) return neon;
+      if (neon) {
+        // Bind the authenticated principal to a known account.
+        // Reject tokens whose subject is not a provisioned center account.
+        const email = neon.payload?.email;
+        const acct = email ? await stmts.getAccountByEmail.get(email) : null;
+        if (acct) return { sub: acct.id, exp: neon.exp };
+        // Fallback: check sub as account ID (for direct sub-based lookups)
+        if (neon.sub) {
+          const acctById = await stmts.getAccountById.get(neon.sub);
+          if (acctById) return { sub: acctById.id, exp: neon.exp };
+        }
+        // JWTs valid against the JWKS but not linked to a provisioned account are rejected
+        return null;
+      }
     }
     return verifyToken(secret, token);
   }
@@ -404,3 +428,4 @@ function prepareAll(db) {
     topCopied: db.prepare('SELECT * FROM comments WHERE deleted=0 ORDER BY copy_count DESC LIMIT ?'),
   };
 }
+

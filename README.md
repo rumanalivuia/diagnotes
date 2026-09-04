@@ -50,11 +50,14 @@ Open http://localhost:5173 and sign in with the dev account:
 
 ```
 email:    diagnotes@center.local
-password: admin123
+password: devpassword
 ```
 
 Set `DIAGNOTES_EMAIL` / `DIAGNOTES_PASSWORD` env vars (and `DIAGNOTES_SECRET`)
-to override the shared center login. In production these are Vercel env vars + Neon secrets.
+to override the shared center login. Local sqlite dev falls back to the
+`devpassword` account with a console warning; **production Postgres fails hard
+at startup if `DIAGNOTES_EMAIL`/`DIAGNOTES_PASSWORD` are unset** — never deploy
+with defaults. In production these are Vercel env vars + Neon secrets.
 `CORS_ORIGIN` restricts allowed origins; `VITE_API_BASE_URL` points the web at a separate API origin (empty = same-origin via Vercel rewrite).
 
 ### Neon setup (already linked)
@@ -107,6 +110,8 @@ vercel env add DATABASE_URL production          # paste pooled DATABASE_URL from
 vercel env add DATABASE_URL_UNPOOLED production # optional, for migrations
 vercel env add NEON_AUTH_BASE_URL production
 vercel env add NEON_AUTH_JWKS_URL production
+vercel env add DIAGNOTES_EMAIL production
+vercel env add DIAGNOTES_PASSWORD production
 vercel env add DIAGNOTES_SECRET production
 vercel env add CORS_ORIGIN production           # e.g. https://diagnotes.vercel.app
 vercel --prod

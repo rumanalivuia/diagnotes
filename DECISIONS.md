@@ -34,7 +34,7 @@ Why:
 ## Tech stack actually used
 
 - **Server**: Node ≥22.5 — Neon Lakebase Postgres via `pg` (pooled `DATABASE_URL`) with `node:sqlite` fallback for local/tests; `node:http`, `node:crypto` scrypt + HMAC + `jose` for Neon Auth JWT verify.
-- **Persistence**: Neon project `royal-resonance-97237468` branch `production` (aws-ap-southeast-1, pg 18). `.neon` + `neon.ts` (`auth: true`) + `.env.local` pulled via `neon deploy`. Vercel env `DATABASE_URL*`, `NEON_AUTH_*`, `DIAGNOTES_SECRET`, `CORS_ORIGIN`.
+- **Persistence**: Neon project `royal-resonance-97237468` branch `production` (aws-ap-southeast-1, pg 18). `.neon` + `neon.ts` (`auth: true`) + `.env.local` pulled via `neon deploy`. Vercel env `DATABASE_URL*`, `NEON_AUTH_*`, `DIAGNOTES_EMAIL`, `DIAGNOTES_PASSWORD`, `DIAGNOTES_SECRET`, `CORS_ORIGIN`.
 - **API**: `server/lib/api.js` async (awaits all stmts, handles `BIGINT` string coercion), `server/lib/db.js` dual-mode wrapper (`wrapPgPool`/`wrapSqliteDb`, `toPg` placeholder translation), `api/index.js` Vercel handler (caches pool, rewrites `/api/*` -> `/api` via `vercel.json`).
 - **Web**: React 19 + Vite 7 + vite-plugin-pwa. Fonts via fontsource (IBM Plex),
   bundled locally for offline. `VITE_API_BASE_URL` for separate API origin (empty = same-origin).
@@ -52,6 +52,7 @@ Why:
 | 9 | Deploy | Vercel `vercel.json` builds `web/dist`, rewrites `/api/(.*)` -> `api/index.js`, includes `server/**`; `CORS_ORIGIN` allowlist, `VITE_API_BASE_URL` for cross-origin | `api/index.js` caches `openDb` pool across invocations |
 | 10 | Secrets | `.env.local` pulled by `neon deploy` (5 vars), `.env.example` documents all; `.neon` is gitignored, real org is `org-damp-sun-46973835` | `neon link --no-checks` initially used dummy `org-test`, fixed after `neon status` |
 | 11 | DB wrapper | `toPg` `?` -> `$n` translation, async `prepare` wrappers, `BIGINT` string coercion in `decodeComment`, `migratePg` vs `migrateSqlite` | Tests force sqlite via `dataDir.includes('diagnotes-test-')` |
+| 12 | Security review (2026-09-04) | F1: pg path fails hard without `DIAGNOTES_EMAIL`/`PASSWORD` (no `admin123` fallback in prod); sqlite dev keeps `devpassword` + warning. F3: Neon JWT verified with `issuer` = origin of `NEON_AUTH_BASE_URL` (per Neon docs; no `aud` — Better Auth JWTs carry none) + binding to local `accounts` table | Rotate already-seeded prod account; set `DIAGNOTES_EMAIL`/`PASSWORD` Vercel env vars |
 
 ## Design decisions (frontend)
 

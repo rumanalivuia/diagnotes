@@ -129,9 +129,11 @@ async function openPgDb() {
   const pool = new Pool({ connectionString, ssl: true });
   await pool.query('SELECT 1');
   await migratePg(pool);
+  if (!process.env.DIAGNOTES_EMAIL) throw new Error('[diagnotes] DIAGNOTES_EMAIL environment variable is required for Postgres/production mode');
+  if (!process.env.DIAGNOTES_PASSWORD) throw new Error('[diagnotes] DIAGNOTES_PASSWORD environment variable is required for Postgres/production mode');
   const env = {
-    email: process.env.DIAGNOTES_EMAIL || 'diagnotes@center.local',
-    password: process.env.DIAGNOTES_PASSWORD || 'admin123',
+    email: process.env.DIAGNOTES_EMAIL,
+    password: process.env.DIAGNOTES_PASSWORD,
     seedDemo: process.env.DIAGNOTES_SEED_DEMO !== '0',
   };
   await seedAccountsPg(pool, env.email, env.password);
@@ -154,9 +156,12 @@ function openSqliteDb(dataDir) {
   migrateSqlite(db);
   const env = {
     email: process.env.DIAGNOTES_EMAIL || 'diagnotes@center.local',
-    password: process.env.DIAGNOTES_PASSWORD || 'admin123',
+    password: process.env.DIAGNOTES_PASSWORD || 'devpassword',
     seedDemo: process.env.DIAGNOTES_SEED_DEMO !== '0',
   };
+  if (!process.env.DIAGNOTES_EMAIL || !process.env.DIAGNOTES_PASSWORD) {
+    console.warn('[diagnotes] WARNING: Using default credentials for local dev. Set DIAGNOTES_EMAIL and DIAGNOTES_PASSWORD for production.');
+  }
   seedAccountsSqlite(db, env.email, env.password);
   if (fresh && env.seedDemo) seedDemoDataSqlite(db);
   return { db: wrapSqliteDb(db), raw: db, dbPath, fresh, env, kind: 'sqlite' };
@@ -436,3 +441,4 @@ export function readOrCreateSecret(dataDir) {
 }
 
 export { dirname };
+

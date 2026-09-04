@@ -50,7 +50,7 @@ export default function Login() {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 16, textAlign: 'center' }}>
-          default dev login: diagnotes@center.local / admin123
+          default dev login: diagnotes@center.local / devpassword
         </p>
       </form>
     </div>
