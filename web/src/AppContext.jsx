@@ -2,6 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, u
 import { store } from './lib/store.js';
 import * as sync from './lib/sync.js';
 import { filterComments, allTags } from './lib/search.js';
+import {
+  authClient, isNeonAuth, getNeonToken, getAuthToken, refreshNeonToken,
+  clearNeonTokenCache, friendlyAuthError,
+} from './lib/neonAuth.js';
 
 const Ctx = createContext(null);
 export const useDiag = () => useContext(Ctx);
@@ -47,11 +51,22 @@ export function AppProvider({ children }) {
     if (bootRef.current) return;
     bootRef.current = true;
     (async () => {
-      const token = await store.kvGet('token');
-      if (token) {
-        setSession({ token, account: await store.kvGet('account') });
-        await reloadLocal();
-        sync.syncNow().catch(() => {});
+      if (isNeonAuth) {
+        try {
+          const { data } = await authClient.getSession();
+          if (data?.user) {
+            setSession({ account: { email: data.user.email, name: data.user.name } });
+            await reloadLocal();
+            sync.syncNow().catch(() => {});
+          }
+        } catch { /* no session: Auth screen shows */ }
+      } else {
+        const token = await store.kvGet('token');
+        if (token) {
+          setSession({ token, account: await store.kvGet('account') });
+          await reloadLocal();
+          sync.syncNow().catch(() => {});
+        }
       }
       setBooted(true);
     })();
@@ -68,7 +83,26 @@ export function AppProvider({ children }) {
     const base = import.meta.env.VITE_API_BASE_URL;
     return base ? base.replace(/\/$/, '') : '';
   };
+  const afterAuth = useCallback(async (account) => {
+    await store.kvSet('account', account);
+    setSession({ account });
+    await reloadLocal();
+    try {
+      await sync.syncNow(); // populate local from server
+    } catch { /* offline: local data still usable */ }
+    await reloadLocal(); // reflect synced rows (incl. any DATA reload that was missed)
+  }, [reloadLocal]);
+
   const login = useCallback(async (email, password) => {
+    if (isNeonAuth) {
+      const { error } = await authClient.signIn.email({ email, password });
+      if (error) throw new Error(friendlyAuthError(error, 'Sign-in failed'));
+      const { data } = await authClient.getSession();
+      if (!data?.user) throw new Error('Sign-in failed — no session');
+      await getNeonToken(true); // prime JWT cache; server provisions account on first call
+      await afterAuth({ email: data.user.email, name: data.user.name });
+      return;
+    }
     const res = await fetch(`${apiBase()}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -77,16 +111,25 @@ export function AppProvider({ children }) {
     if (!res.ok) throw new Error('Invalid email or password');
     const data = await res.json();
     await store.kvSet('token', data.token);
-    await store.kvSet('account', data.account);
     setSession({ token: data.token, account: data.account });
-    await reloadLocal();
-    try {
-      await sync.syncNow(); // populate local from server
-    } catch { /* offline: local data still usable */ }
-    await reloadLocal(); // reflect synced rows (incl. any DATA reload that was missed)
-  }, [reloadLocal]);
+    await afterAuth(data.account);
+  }, [afterAuth]);
+
+  const signup = useCallback(async (name, email, password) => {
+    if (!isNeonAuth) throw new Error('Sign-up is not enabled on this server');
+    const { error } = await authClient.signUp.email({ name: name || email.split('@')[0], email, password });
+    if (error) throw new Error(friendlyAuthError(error, 'Sign-up failed'));
+    const { data } = await authClient.getSession();
+    if (!data?.user) throw new Error('Sign-up succeeded — please sign in');
+    await getNeonToken(true);
+    await afterAuth({ email: data.user.email, name: data.user.name });
+  }, [afterAuth]);
 
   const logout = useCallback(async () => {
+    if (isNeonAuth) {
+      try { await authClient.signOut(); } catch { /* already out */ }
+      clearNeonTokenCache();
+    }
     await sync.clearAuth();
     setSession(null);
     setComments([]);
@@ -130,17 +173,26 @@ export function AppProvider({ children }) {
 
   /* ── server-side admin / submission actions ── */
   const serverCall = useCallback(async (path, opts = {}) => {
-    const token = await store.kvGet('token');
-    const headers = { ...(opts.headers || {}) };
-    if (opts.json !== undefined) headers['Content-Type'] = 'application/json';
-    if (token) headers.Authorization = `Bearer ${token}`;
     const base = apiBase();
-    const url = base ? `${base}/api${path}` : `/api${path}`;
-    const res = await fetch(url, {
-      method: opts.method || 'GET',
-      headers,
-      body: opts.json !== undefined ? JSON.stringify(opts.json) : undefined,
-    });
+    async function request(token) {
+      const headers = { ...(opts.headers || {}) };
+      if (opts.json !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = base ? `${base}/api${path}` : `/api${path}`;
+      return fetch(url, {
+        method: opts.method || 'GET',
+        headers,
+        body: opts.json !== undefined ? JSON.stringify(opts.json) : undefined,
+      });
+    }
+    let res = await request(await getAuthToken());
+    if (res.status === 401 && isNeonAuth) {
+      try {
+        res = await request(await refreshNeonToken());
+      } catch {
+        throw new Error('unauthorized');
+      }
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(text.slice(0, 200) || `server ${res.status}`);
@@ -202,7 +254,7 @@ export function AppProvider({ children }) {
   }, [comments]);
 
   const value = {
-    session, booted, login, logout,
+    session, booted, login, signup, logout, neonEnabled: isNeonAuth,
     comments, categories, recent, visible, tagCloud, counts, toasts,
     filters, setFilters, view, setView,
     saveComment, deleteComment, copyAndTrack, doSyncNow, reloadLocal,

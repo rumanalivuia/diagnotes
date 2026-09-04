@@ -1,4 +1,5 @@
 import { store } from './store.js';
+import { getAuthToken, isNeonAuth, refreshNeonToken } from './neonAuth.js';
 
 /**
  * Sync engine: pulls deltas from the server, pushes the local change queue,
@@ -48,17 +49,27 @@ function apiBase() {
   return '';
 }
 async function api(path, opts = {}) {
-  const token = await store.kvGet('token');
-  const headers = { ...(opts.headers || {}) };
-  if (opts.json !== undefined) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
   const base = apiBase();
-  const url = base ? `${base}/api${path}` : `/api${path}`;
-  const res = await fetch(url, {
-    method: opts.method || 'GET',
-    headers,
-    body: opts.json !== undefined ? JSON.stringify(opts.json) : undefined,
-  });
+  async function request(token) {
+    const headers = { ...(opts.headers || {}) };
+    if (opts.json !== undefined) headers['Content-Type'] = 'application/json';
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const url = base ? `${base}/api${path}` : `/api${path}`;
+    return fetch(url, {
+      method: opts.method || 'GET',
+      headers,
+      body: opts.json !== undefined ? JSON.stringify(opts.json) : undefined,
+    });
+  }
+  let res = await request(await getAuthToken());
+  if (res.status === 401 && isNeonAuth) {
+    // JWT may have expired mid-session: refresh once and retry before failing.
+    try {
+      res = await request(await refreshNeonToken());
+    } catch {
+      throw new Error('unauthorized');
+    }
+  }
   if (res.status === 401) {
     // Do NOT wipe the stored token here: a transient 401 (e.g. sync racing the
     // very first login write) must not log the user out permanently. The app

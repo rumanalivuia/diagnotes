@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { useDiag } from '../AppContext.jsx';
 
 export default function Login() {
-  const { login, toast } = useDiag();
+  const { login, signup, neonEnabled, toast } = useDiag();
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const showSignup = neonEnabled && mode === 'signup';
 
   async function submit(e) {
     e.preventDefault();
@@ -14,8 +18,13 @@ export default function Login() {
     setBusy(true);
     setError('');
     try {
-      await login(email.trim(), password);
-      toast.success('Welcome back');
+      if (showSignup) {
+        await signup(name.trim(), email.trim(), password);
+        toast.success('Account created — welcome');
+      } else {
+        await login(email.trim(), password);
+        toast.success('Welcome back');
+      }
     } catch (err) {
       setError(err.message || 'Sign-in failed');
     } finally {
@@ -33,23 +42,48 @@ export default function Login() {
             <div className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)' }}>diagnostic comments library</div>
           </div>
         </div>
-        <h1>Sign in</h1>
-        <p className="sub">One shared login per center. Comments sync across this device and the web.</p>
+        <h1>{showSignup ? 'Create account' : 'Sign in'}</h1>
+        <p className="sub">
+          {neonEnabled
+            ? 'One account per member. Everyone shares the same comments library.'
+            : 'One shared login per center. Comments sync across this device and the web.'}
+        </p>
+        {neonEnabled && (
+          <div className="auth-tabs" role="tablist" aria-label="Sign in or create account">
+            <button type="button" role="tab" aria-selected={mode === 'signin'}
+              className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setError(''); }}>
+              Sign in
+            </button>
+            <button type="button" role="tab" aria-selected={mode === 'signup'}
+              className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); }}>
+              Create account
+            </button>
+          </div>
+        )}
         {error && <div className="login-error" role="alert">{error}</div>}
+        {showSignup && (
+          <div className="field">
+            <label htmlFor="name">Display name</label>
+            <input id="name" className="input" type="text" autoComplete="name" value={name}
+              onChange={(e) => setName(e.target.value)} placeholder="e.g. Lab — Hematology" required />
+          </div>
+        )}
         <div className="field">
-          <label htmlFor="email">Center email</label>
+          <label htmlFor="email">{showSignup ? 'Work email' : 'Email'}</label>
           <input id="email" className="input" type="email" autoComplete="username" value={email}
             onChange={(e) => setEmail(e.target.value)} placeholder="Center email address" required />
         </div>
         <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" className="input" type="password" autoComplete="current-password" value={password}
-            onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+          <label htmlFor="password">Password{showSignup ? ' (min. 8 characters)' : ''}</label>
+          <input id="password" className="input" type="password"
+            autoComplete={showSignup ? 'new-password' : 'current-password'} value={password}
+            onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required
+            minLength={showSignup ? 8 : undefined} />
         </div>
         <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} type="submit">
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? (showSignup ? 'Creating account…' : 'Signing in…') : (showSignup ? 'Create account' : 'Sign in')}
         </button>
-        {import.meta.env.DEV && (
+        {import.meta.env.DEV && !neonEnabled && (
           <p className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 16, textAlign: 'center' }}>
             default dev login: diagnotes@center.local / devpassword
           </p>

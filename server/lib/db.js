@@ -272,6 +272,8 @@ async function migratePg(pool) {
     CREATE INDEX IF NOT EXISTS idx_comments_updated ON comments (updated_at);
     CREATE INDEX IF NOT EXISTS idx_categories_updated ON categories (updated_at);
   `);
+  // Upgrade for pre-existing pg DBs (fresh tables above lack neon_sub)
+  await pool.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS neon_sub TEXT UNIQUE`);
 }
 
 function migrateSqlite(db) {
@@ -281,6 +283,7 @@ function migrateSqlite(db) {
       email         TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       salt          TEXT NOT NULL,
+      neon_sub      TEXT UNIQUE,
       created_at    INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS categories (
@@ -310,6 +313,10 @@ function migrateSqlite(db) {
     CREATE INDEX IF NOT EXISTS idx_comments_updated ON comments (updated_at);
     CREATE INDEX IF NOT EXISTS idx_categories_updated ON categories (updated_at);
   `);
+  // Idempotent upgrade for pre-existing sqlite DBs (no IF NOT EXISTS for ADD COLUMN)
+  const cols = db.prepare(`PRAGMA table_info(accounts)`).all().map((c) => c.name);
+  if (!cols.includes('neon_sub')) db.exec(`ALTER TABLE accounts ADD COLUMN neon_sub TEXT`);
+  try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_neon_sub ON accounts (neon_sub)`); } catch {}
 }
 
 async function seedAccountsPg(pool, email, password) {

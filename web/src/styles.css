@@ -559,6 +559,17 @@ input, textarea { font-family: inherit; }
   border-radius: var(--radius-sm);
   padding: 8px 10px; font-size: 13px; margin-bottom: 12px;
 }
+.auth-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 4px; margin-bottom: 16px;
+}
+.auth-tabs button {
+  border: none; background: transparent; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-soft);
+  padding: 8px 0; border-radius: 6px;
+}
+.auth-tabs button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
 
 /* ── Admin panel ───────────────────────────────────────── */
 .admin-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-bottom: 20px; }

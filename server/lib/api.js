@@ -31,6 +31,30 @@ async function verifyNeonAuth(token) {
 }
 
 /**
+ * Resolve a verified Neon Auth principal to a local account, provisioning one
+ * on first login (open signup). Neon-provisioned rows carry empty
+ * password_hash/salt so they can never authenticate via the HMAC login path
+ * (verifyPassword fails on length mismatch).
+ */
+export async function findOrProvisionNeonAccount(stmts, neon) {
+  const email = neon.payload?.email;
+  if (email) {
+    const acct = await stmts.getAccountByEmail.get(email);
+    if (acct) return { sub: acct.id, exp: neon.exp };
+  }
+  if (neon.sub) {
+    const bySub = await stmts.getAccountByNeonSub.get(neon.sub);
+    if (bySub) return { sub: bySub.id, exp: neon.exp };
+    const id = uid();
+    await stmts.insertNeonAccount.run(
+      id, email || `neon_${neon.sub}@users.local`, '', '', neon.sub, now()
+    );
+    return { sub: id, exp: neon.exp };
+  }
+  return null;
+}
+
+/**
  * Build the API router.  Returns a function (req, res) => boolean.
  * Every handler returns true if it handled the request, false otherwise.
  */
@@ -64,20 +88,7 @@ export function buildApi(db, secret) {
     // Try Neon Auth first if configured
     if (process.env.NEON_AUTH_JWKS_URL) {
       const neon = await verifyNeonAuth(token);
-      if (neon) {
-        // Bind the authenticated principal to a known account.
-        // Reject tokens whose subject is not a provisioned center account.
-        const email = neon.payload?.email;
-        const acct = email ? await stmts.getAccountByEmail.get(email) : null;
-        if (acct) return { sub: acct.id, exp: neon.exp };
-        // Fallback: check sub as account ID (for direct sub-based lookups)
-        if (neon.sub) {
-          const acctById = await stmts.getAccountById.get(neon.sub);
-          if (acctById) return { sub: acctById.id, exp: neon.exp };
-        }
-        // JWTs valid against the JWKS but not linked to a provisioned account are rejected
-        return null;
-      }
+      if (neon) return findOrProvisionNeonAccount(stmts, neon);
     }
     return verifyToken(secret, token);
   }
@@ -386,6 +397,8 @@ function prepareAll(db) {
   return {
     getAccountByEmail: db.prepare('SELECT * FROM accounts WHERE email = ?'),
     getAccountById: db.prepare('SELECT id, email FROM accounts WHERE id = ?'),
+    getAccountByNeonSub: db.prepare('SELECT id, email FROM accounts WHERE neon_sub = ?'),
+    insertNeonAccount: db.prepare('INSERT INTO accounts (id, email, password_hash, salt, neon_sub, created_at) VALUES (?, ?, ?, ?, ?, ?)'),
 
     listCategories: db.prepare('SELECT * FROM categories WHERE archived = 0 ORDER BY name'),
     getCategoryById: db.prepare('SELECT * FROM categories WHERE id = ?'),

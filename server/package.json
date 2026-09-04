@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "node --watch index.js",
     "start": "node index.js",
-    "test": "node --test test/api.test.js"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "jose": "^6.2.10",

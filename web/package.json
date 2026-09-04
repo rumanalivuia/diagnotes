@@ -13,6 +13,7 @@
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.6",
     "@fontsource/ibm-plex-mono": "^5.2.6",
+    "@neondatabase/neon-js": "^0.7.0-beta",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
