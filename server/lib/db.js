@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { SEED_NOTES } from './seedNotes.js';
 
 export const DEMO_CATEGORIES = [
   'Hematology',
@@ -344,7 +345,7 @@ async function seedDemoDataPg(pool) {
   }
   const catRes = await pool.query('SELECT id, name FROM categories');
   const cat = new Map(catRes.rows.map((c) => [c.name, c.id]));
-  for (const c of DEMO_COMMENTS) {
+  for (const c of [...DEMO_COMMENTS, ...SEED_NOTES]) {
     const body = JSON.stringify(c.body);
     await pool.query(
       `INSERT INTO comments
@@ -354,7 +355,7 @@ async function seedDemoDataPg(pool) {
       [uid(), c.type, c.title, body, textOf(c.body), c.status, cat.get(c.category) ?? null, JSON.stringify(c.tags), null, 0, at, at]
     );
   }
-  console.log(`[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length} approved shared comments (pg)`);
+  console.log(`[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length + SEED_NOTES.length} approved shared comments (pg)`);
 }
 
 function seedDemoDataSqlite(db) {
@@ -373,7 +374,7 @@ function seedDemoDataSqlite(db) {
         copy_count, deleted, archived, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
   );
-  for (const c of DEMO_COMMENTS) {
+  for (const c of [...DEMO_COMMENTS, ...SEED_NOTES]) {
     const body = JSON.stringify(c.body);
     insertComment.run(
       uid(),
@@ -390,7 +391,7 @@ function seedDemoDataSqlite(db) {
       at
     );
   }
-  console.log(`[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length} approved shared comments (sqlite)`);
+  console.log(`[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length + SEED_NOTES.length} approved shared comments (sqlite)`);
 }
 
 /** Current time in epoch ms (all timestamps are ms). */
