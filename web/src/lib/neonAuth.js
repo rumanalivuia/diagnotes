@@ -13,7 +13,6 @@ import { store } from './store.js';
  */
 
 const NEON_URL = import.meta.env.VITE_NEON_AUTH_URL;
-export const isNeonAuth = !!NEON_URL;
 
 // When VITE_NEON_AUTH_URL is absolute (e.g. https://*.neon.tech/...), the auth
 // service is cross-origin — credentials:'include' is needed for the session
@@ -22,9 +21,19 @@ export const isNeonAuth = !!NEON_URL;
 // first-party — no third-party restrictions.
 const isRelative = NEON_URL && !/^https?:\/\//i.test(NEON_URL);
 
-export const authClient = isNeonAuth
-  ? createAuthClient(NEON_URL, { fetchOptions: { credentials: isRelative ? 'same-origin' : 'include' } })
-  : null;
+let authClient = null;
+if (NEON_URL) {
+  try {
+    authClient = createAuthClient(NEON_URL, {
+      fetchOptions: { credentials: isRelative ? 'same-origin' : 'include' },
+    });
+  } catch (e) {
+    console.error('[neonAuth] createAuthClient failed — falling back to legacy login:', e);
+  }
+}
+export { authClient };
+
+export const isNeonAuth = !!authClient;
 
 let cached = null; // { token, expMs }
 

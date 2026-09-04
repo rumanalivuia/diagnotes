@@ -1,7 +1,6 @@
 {
   "buildCommand": "npm run build --workspace web",
   "outputDirectory": "web/dist",
-  "framework": "vite",
   "rewrites": [
     { "source": "/neonauth/(.*)", "destination": "/api" },
     { "source": "/api/(.*)", "destination": "/api" },
