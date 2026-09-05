@@ -5,3 +5,4 @@
 - Prefers autonomous end-to-end execution: investigate → fix → test → commit → deploy → verify, without pausing for intermediate approval. Says "continue" or "now commit" to push through. Confidence: 0.8
 - Values end-to-end verification over unit tests alone — expects e2e smoke tests, production builds, and live deployment checks as standard. Confidence: 0.7
 - Wants full (not piecemeal) design passes: "use /design skill and review the project then /plan for improvement with deep qa interview of me". Confidence: 0.8
+- Delegates feature ideation to the assistant — says things like "elements we should add" and expects the AI to propose what features to build, not just implement specified requirements. Confidence: 0.7

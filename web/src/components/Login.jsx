@@ -1,14 +1,24 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useDiag } from '../AppContext.jsx';
 
-export default function Login() {
+export default function Login({ onClose }) {
   const { login, loginCenter, signup, neonEnabled, toast } = useDiag();
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'center'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const emailRef = useRef(null);
+
+  // Restore remembered email
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dn_remembered_email');
+      if (saved) setEmail(saved);
+    } catch {}
+  }, []);
 
   const isSignup = neonEnabled && mode === 'signup';
   const isCenter = mode === 'center';
@@ -16,27 +26,38 @@ export default function Login() {
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setError('');
+
+    // Client-side email validation
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Enter a valid email address.');
+      emailRef.current?.focus();
+      return;
+    }
+
+    setBusy(true);
     try {
       if (isCenter) {
-        await loginCenter(email.trim(), password);
+        await loginCenter(trimmedEmail, password);
         toast.success('Welcome back');
       } else if (isSignup) {
-        await signup(name.trim(), email.trim(), password);
+        await signup(name.trim(), trimmedEmail, password);
         toast.success('Account created — welcome');
       } else {
-        await login(email.trim(), password);
+        await login(trimmedEmail, password);
         toast.success('Welcome back');
       }
+      // Remember email on success
+      try { localStorage.setItem('dn_remembered_email', trimmedEmail); } catch {}
+      onClose?.();
     } catch (err) {
       const msg = err.message || 'Sign-in failed';
       if (isSignup && /already exists/i.test(msg)) {
-        // Account exists: drop them on the sign-in tab with the email kept.
         setMode('signin');
         setError('An account with this email already exists — sign in below.');
       } else if (!isCenter && neonEnabled && /invalid email or password/i.test(msg)) {
-        setError('No member account matches this email. Create one with “Create account”, or use center login below.');
+        setError('No member account matches this email. Create one with "Create account", or use center login below.');
       } else {
         setError(msg);
       }
@@ -50,8 +71,9 @@ export default function Login() {
   const goLabel = isCenter || !isSignup ? 'Sign in' : 'Create account';
 
   return (
-    <div className="login-wrap">
-      <form className="login-card" onSubmit={submit}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <form className="login-card modal-login" onSubmit={submit} onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <div className="login-brand">
           <div className="brand-mark">D</div>
           <div>
@@ -79,7 +101,12 @@ export default function Login() {
             </button>
           </div>
         )}
-        {error && <div className="login-error" role="alert">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
+            <span>{error}</span>
+          </div>
+        )}
         {isSignup && (
           <div className="field">
             <label htmlFor="name">Display name</label>
@@ -89,17 +116,28 @@ export default function Login() {
         )}
         <div className="field">
           <label htmlFor="email">{isSignup ? 'Work email' : 'Email'}</label>
-          <input id="email" className="input" type="email" autoComplete="username" value={email}
+          <input id="email" ref={emailRef} className="input" type="email" autoComplete="username" value={email}
             onChange={(e) => setEmail(e.target.value)} placeholder="Center email address" required />
         </div>
         <div className="field">
           <label htmlFor="password">Password{isSignup ? ' (min. 8 characters)' : ''}</label>
-          <input id="password" className="input" type="password"
-            autoComplete={isSignup ? 'new-password' : 'current-password'} value={password}
-            onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required
-            minLength={isSignup ? 8 : undefined} />
+          <div className="pw-wrap">
+            <input id="password" className="input pw-input" type={showPw ? 'text' : 'password'}
+              autoComplete={isSignup ? 'new-password' : 'current-password'} value={password}
+              onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required
+              minLength={isSignup ? 8 : undefined} />
+            <button type="button" className="pw-toggle" onClick={() => setShowPw(!showPw)}
+              aria-label={showPw ? 'Hide password' : 'Show password'} tabIndex={-1}>
+              {showPw ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+              )}
+            </button>
+          </div>
         </div>
-        <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} type="submit">
+        <button className="btn btn-primary login-submit" style={{ width: '100%' }} disabled={busy} type="submit">
+          {busy && <span className="spinner" />}
           {busy ? busyLabel : goLabel}
         </button>
         {neonEnabled && (

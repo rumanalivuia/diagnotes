@@ -15,15 +15,51 @@ export function uid() {
   return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
 }
 
+/* ── Theme helpers ──────────────────────────────────────── */
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem('dn_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch {}
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('dn_theme', t); } catch {}
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(null); // { account, token }
   const [booted, setBooted] = useState(false);
   const [comments, setComments] = useState([]);
   const [categories, setCategories] = useState([]);
   const [recent, setRecent] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [syncState, setSyncState] = useState(sync.getState());
   const [toasts, setToasts] = useState([]);
+  const [theme, setTheme] = useState(getInitialTheme);
   const bootRef = useRef(false);
+  const prevStatusRef = useRef(new Map()); // id -> status for notification detection
+
+  /* ── theme ── */
+  useEffect(() => { applyTheme(theme); }, [theme]);
+
+  // Listen for OS theme changes
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const handler = (e) => {
+      const saved = localStorage.getItem('dn_theme');
+      if (!saved) setTheme(e.matches ? 'dark' : 'light');
+    };
+    mq.addEventListener?.('change', handler);
+    return () => mq.removeEventListener?.('change', handler);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => t === 'dark' ? 'light' : 'dark');
+  }, []);
 
   /* ── toast helpers ── */
   const pushToast = useCallback((kind, msg) => {
@@ -40,49 +76,115 @@ export function AppProvider({ children }) {
     [pushToast]
   );
 
+  /* ── favorites ── */
+  const loadFavorites = useCallback(async () => {
+    const ids = (await store.kvGet('favorites')) || [];
+    setFavorites(ids);
+  }, []);
+
+  const toggleFavorite = useCallback(async (commentId) => {
+    const ids = (await store.kvGet('favorites')) || [];
+    const next = ids.includes(commentId) ? ids.filter((id) => id !== commentId) : [...ids, commentId];
+    await store.kvSet('favorites', next);
+    setFavorites(next);
+  }, []);
+
   const reloadLocal = useCallback(async () => {
     setComments(await sync.getComments());
     setCategories(await sync.getCategories());
     setRecent(await sync.getRecentlyCopied());
+    await loadFavorites();
+  }, [loadFavorites]);
+
+  const apiBase = useCallback(() => {
+    const base = import.meta.env.VITE_API_BASE_URL;
+    return base ? base.replace(/\/$/, '') : '';
   }, []);
+
+  /** Public fetch: load approved shared comments + categories without auth. */
+  const loadPublic = useCallback(async () => {
+    try {
+      const base = apiBase();
+      const [catRes, comRes] = await Promise.all([
+        fetch(`${base}/api/categories`),
+        fetch(`${base}/api/comments?type=shared`),
+      ]);
+      if (catRes.ok) {
+        const d = await catRes.json();
+        setCategories(d.categories || []);
+      }
+      if (comRes.ok) {
+        const d = await comRes.json();
+        setComments(d.comments || []);
+      }
+    } catch { /* offline or error — show empty state */ }
+  }, [apiBase]);
+
+  /* ── approval notification detection ── */
+  const checkApprovalNotifications = useCallback(async (updatedComments) => {
+    const prev = prevStatusRef.current;
+    for (const c of updatedComments) {
+      const oldStatus = prev.get(c.id);
+      if (oldStatus === 'pending_approval' && c.status === 'approved') {
+        toast.success(`"${c.title}" has been approved`);
+      } else if (oldStatus === 'pending_approval' && c.status === 'rejected') {
+        const reason = c.rejection_reason ? `: ${c.rejection_reason}` : '';
+        toast.info(`"${c.title}" was rejected${reason}`);
+      }
+      prev.set(c.id, c.status);
+    }
+  }, [toast]);
 
   /* ── boot / restore session ── */
   useEffect(() => {
     if (bootRef.current) return;
     bootRef.current = true;
     (async () => {
+      let hasSession = false;
       if (isNeonAuth) {
         try {
           const { data } = await authClient.getSession();
           if (data?.user) {
             setSession({ account: { email: data.user.email, name: data.user.name } });
+            hasSession = true;
             await reloadLocal();
             sync.syncNow().catch(() => {});
           }
-        } catch { /* no session: Auth screen shows */ }
+        } catch { /* no session: public mode */ }
       } else {
         const token = await store.kvGet('token');
         if (token) {
-          setSession({ token, account: await store.kvGet('account') });
+          const acct = await store.kvGet('account');
+          setSession({ token, account: acct });
+          hasSession = true;
           await reloadLocal();
           sync.syncNow().catch(() => {});
         }
+      }
+      if (hasSession) {
+        // Initialize status tracking for notification detection
+        const allComments = await sync.getComments();
+        for (const c of allComments) prevStatusRef.current.set(c.id, c.status);
+      } else {
+        // Public visitor — fetch approved shared comments directly
+        await loadPublic();
       }
       setBooted(true);
     })();
     const unsub = sync.onChange((kind) => {
       if (kind === sync.EVENT.STATE) setSyncState(sync.getState());
-      if (kind === sync.EVENT.DATA) reloadLocal();
+      if (kind === sync.EVENT.DATA) {
+        reloadLocal().then(async () => {
+          const updated = await sync.getComments();
+          checkApprovalNotifications(updated);
+        });
+      }
       if (kind === sync.EVENT.ERROR) toast.error('Sync failed — offline changes are safe.');
     });
     return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const apiBase = () => {
-    const base = import.meta.env.VITE_API_BASE_URL;
-    return base ? base.replace(/\/$/, '') : '';
-  };
   const afterAuth = useCallback(async (account) => {
     await store.kvSet('account', account);
     setSession({ account });
@@ -94,8 +196,6 @@ export function AppProvider({ children }) {
   }, [reloadLocal]);
 
   const loginCenter = useCallback(async (email, password) => {
-    // Legacy single shared HMAC login. Always available server-side, even when
-    // Neon member auth is enabled — kept as the recovery path.
     const res = await fetch(`${apiBase()}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -114,7 +214,7 @@ export function AppProvider({ children }) {
       if (error) throw new Error(friendlyAuthError(error, 'Sign-in failed'));
       const { data } = await authClient.getSession();
       if (!data?.user) throw new Error('Sign-in failed — no session');
-      await getNeonToken(true); // prime JWT cache; server provisions account on first call
+      await getNeonToken(true);
       await afterAuth({ email: data.user.email, name: data.user.name });
       return;
     }
@@ -150,6 +250,7 @@ export function AppProvider({ children }) {
     setComments([]);
     setCategories([]);
     setRecent([]);
+    setFavorites([]);
     toast.info('Signed out');
   }, [toast]);
 
@@ -228,8 +329,6 @@ export function AppProvider({ children }) {
   }, [serverCall, reloadLocal, toast]);
 
   const submitToShared = useCallback(async (comment) => {
-    // Ensure the comment exists server-side first (local-only comments must be
-    // pushed before the server can move them into the review queue).
     await sync.syncNow().catch(() => {});
     await serverCall(`/comments/${comment.id}/submit`, { method: 'POST' });
     await sync.syncNow().catch(() => {});
@@ -248,13 +347,19 @@ export function AppProvider({ children }) {
     await reloadLocal();
   }, [serverCall, reloadLocal]);
 
-  const [view, setView] = useState('library'); // library | recent | admin
+  const [view, setView] = useState('library'); // library | recent | favorites | admin
+  const [showLogin, setShowLogin] = useState(false);
+  const isPublic = !session;
+  const isAdmin = session?.account?.role === 'admin';
+  const showLoginPrompt = useCallback(() => setShowLogin(true), []);
+  const hideLoginPrompt = useCallback(() => setShowLogin(false), []);
   const [filters, setFilters] = useState({ type: 'shared', categoryId: null, tag: null, query: '', status: null });
 
   const visible = useMemo(() => {
     if (view === 'recent') return recent;
+    if (view === 'favorites') return comments.filter((c) => favorites.includes(c.id));
     return filterComments(comments, filters);
-  }, [view, recent, comments, filters]);
+  }, [view, recent, comments, filters, favorites]);
 
   const tagCloud = useMemo(() => allTags(filterComments(comments, { type: filters.type })), [comments, filters.type]);
 
@@ -270,11 +375,12 @@ export function AppProvider({ children }) {
 
   const value = {
     session, booted, login, loginCenter, signup, logout, neonEnabled: isNeonAuth,
-    comments, categories, recent, visible, tagCloud, counts, toasts,
+    isPublic, isAdmin, showLogin, showLoginPrompt, hideLoginPrompt,
+    comments, categories, recent, favorites, visible, tagCloud, counts, toasts,
     filters, setFilters, view, setView,
-    saveComment, deleteComment, copyAndTrack, doSyncNow, reloadLocal,
+    saveComment, deleteComment, copyAndTrack, doSyncNow, reloadLocal, loadPublic,
     approveShared, rejectShared, submitToShared, addCategory, updateCategory,
-    syncState, toast,
+    syncState, toast, theme, toggleTheme, toggleFavorite,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

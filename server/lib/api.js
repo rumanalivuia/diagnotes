@@ -1,4 +1,4 @@
-import { uid, now, textOf, verifyPassword } from './db.js';
+import { uid, now, textOf, verifyPassword, getAdminCount, setAccountRole } from './db.js';
 import { createToken, verifyToken } from './auth.js';
 
 let jwksCache = null;
@@ -36,20 +36,22 @@ async function verifyNeonAuth(token) {
  * password_hash/salt so they can never authenticate via the HMAC login path
  * (verifyPassword fails on length mismatch).
  */
-export async function findOrProvisionNeonAccount(stmts, neon) {
+export async function findOrProvisionNeonAccount(stmts, neon, db) {
   const email = neon.payload?.email?.trim();
   if (email) {
     const acct = await stmts.getAccountByEmail.get(email);
-    if (acct) return { sub: acct.id, exp: neon.exp };
+    if (acct) return { sub: acct.id, exp: neon.exp, role: acct.role || 'user' };
   }
   if (neon.sub) {
     const bySub = await stmts.getAccountByNeonSub.get(neon.sub);
-    if (bySub) return { sub: bySub.id, exp: neon.exp };
+    if (bySub) return { sub: bySub.id, exp: neon.exp, role: bySub.role || 'user' };
     const id = uid();
+    // First-ever Neon Auth signup becomes admin
+    const role = (await getAdminCount(db)) === 0 ? 'admin' : 'user';
     await stmts.insertNeonAccount.run(
-      id, email || `neon_${neon.sub}@users.local`, '', '', neon.sub, now()
+      id, email || `neon_${neon.sub}@users.local`, '', '', neon.sub, role, now()
     );
-    return { sub: id, exp: neon.exp };
+    return { sub: id, exp: neon.exp, role };
   }
   return null;
 }
@@ -60,6 +62,7 @@ export async function findOrProvisionNeonAccount(stmts, neon) {
  */
 export function buildApi(db, secret) {
   const stmts = prepareAll(db);
+  const _db = db; // ref for findOrProvisionNeonAccount admin check
 
   /* ── helpers ─────────────────────────────────────────────── */
 
@@ -88,7 +91,7 @@ export function buildApi(db, secret) {
     // Try Neon Auth first if configured
     if (process.env.NEON_AUTH_JWKS_URL) {
       const neon = await verifyNeonAuth(token);
-      if (neon) return findOrProvisionNeonAccount(stmts, neon);
+      if (neon) return findOrProvisionNeonAccount(stmts, neon, _db);
     }
     return verifyToken(secret, token);
   }
@@ -96,6 +99,21 @@ export function buildApi(db, secret) {
   async function requireAuth(req, res) {
     const session = await auth(req);
     if (!session) { json(res, 401, { error: 'unauthorized' }); return null; }
+    return session;
+  }
+
+  async function optionalAuth(req) {
+    try { return await auth(req); } catch { return null; }
+  }
+
+  async function requireAdmin(req, res) {
+    const session = await requireAuth(req, res);
+    if (!session) return null;
+    const acct = await stmts.getAccountById.get(session.sub);
+    if (!acct || acct.role !== 'admin') {
+      json(res, 403, { error: 'admin access required' });
+      return null;
+    }
     return session;
   }
 
@@ -122,25 +140,25 @@ export function buildApi(db, secret) {
         if (!acct || !verifyPassword(body.password, acct.password_hash, acct.salt))
           return json(res, 401, { error: 'invalid credentials' });
         const token = createToken(secret, acct.id);
-        return json(res, 200, { token, account: { id: acct.id, email: acct.email } });
+        return json(res, 200, { token, account: { id: acct.id, email: acct.email, role: acct.role || 'user' } });
       }
 
       if (p === '/api/auth/me' && method === 'GET') {
         const session = await requireAuth(req, res); if (!session) return;
         const acct = await stmts.getAccountById.get(session.sub);
         if (!acct) return json(res, 404, { error: 'account not found' });
-        return json(res, 200, { account: { id: acct.id, email: acct.email } });
+        return json(res, 200, { account: { id: acct.id, email: acct.email, role: acct.role || 'user' } });
       }
 
       // ── Categories ──
       if (p === '/api/categories' && method === 'GET') {
-        const session = await requireAuth(req, res); if (!session) return;
+        await optionalAuth(req); // public read
         const rows = await stmts.listCategories.all();
         return json(res, 200, { categories: rows });
       }
 
       if (p === '/api/categories' && method === 'POST') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await requireAdmin(req, res); if (!session) return;
         const body = await readBody(req);
         if (!body?.name) return json(res, 400, { error: 'name required' });
         const id = uid();
@@ -151,7 +169,7 @@ export function buildApi(db, secret) {
 
       const catMatch = p.match(/^\/api\/categories\/([A-Za-z0-9_-]+)$/);
       if (catMatch && method === 'PATCH') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await requireAdmin(req, res); if (!session) return;
         const body = await readBody(req);
         const existing = await stmts.getCategoryById.get(catMatch[1]);
         if (!existing) return json(res, 404, { error: 'not found' });
@@ -164,21 +182,31 @@ export function buildApi(db, secret) {
 
       // ── Comments ──
       if (p === '/api/comments' && method === 'GET') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await optionalAuth(req);
         const sp = url.searchParams;
-        const type = sp.get('type');
-        const status = sp.get('status');
+        let type = sp.get('type');
+        let status = sp.get('status');
         const category = sp.get('category_id');
         const tag = sp.get('tag');
         const q = sp.get('q');
         const since = sp.get('since');
         const limit = Math.min(parseInt(sp.get('limit') || '200', 10), 500);
 
+        // Public visitors can only see approved shared comments
+        if (!session) {
+          type = 'shared';
+          status = 'approved';
+        }
+
         let rows;
-        if (since) {
+        if (since && session) {
           rows = await stmts.syncComments.all(Number(since));
         } else if (q) {
-          rows = await stmts.searchComments.all(`%${q}%`, `%${q}%`, limit);
+          if (!session) {
+            rows = await stmts.searchPublicComments.all(`%${q}%`, `%${q}%`, limit);
+          } else {
+            rows = await stmts.searchComments.all(`%${q}%`, `%${q}%`, limit);
+          }
         } else if (type && category && tag) {
           rows = await stmts.filterCommentsTypeCatTag.all(type, category, `%${tag}%`, limit);
         } else if (type && category) {
@@ -194,7 +222,7 @@ export function buildApi(db, secret) {
         } else if (tag) {
           rows = await stmts.filterCommentsTag.all(`%${tag}%`, limit);
         } else {
-          rows = await stmts.listComments.all(limit);
+          rows = !session ? await stmts.listPublicComments.all(limit) : await stmts.listComments.all(limit);
         }
         return json(res, 200, { comments: rows.map(decodeComment) });
       }
@@ -227,9 +255,13 @@ export function buildApi(db, secret) {
 
       const commentMatch = p.match(/^\/api\/comments\/([A-Za-z0-9_-]+)$/);
       if (commentMatch && method === 'GET') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await optionalAuth(req);
         const row = await stmts.getCommentById.get(commentMatch[1]);
         if (!row) return json(res, 404, { error: 'not found' });
+        // Public visitors can only see approved shared comments
+        if (!session && (row.type !== 'shared' || row.status !== 'approved')) {
+          return json(res, 404, { error: 'not found' });
+        }
         return json(res, 200, { comment: decodeComment(row) });
       }
 
@@ -287,14 +319,14 @@ export function buildApi(db, secret) {
       // ── Admin approve / reject ──
       const approveMatch = p.match(/^\/api\/admin\/comments\/([A-Za-z0-9_-]+)\/approve$/);
       if (approveMatch && method === 'POST') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await requireAdmin(req, res); if (!session) return;
         await stmts.approveComment.run('approved', null, now(), approveMatch[1]);
         return json(res, 200, { ok: true });
       }
 
       const rejectMatch = p.match(/^\/api\/admin\/comments\/([A-Za-z0-9_-]+)\/reject$/);
       if (rejectMatch && method === 'POST') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await requireAdmin(req, res); if (!session) return;
         const body = await readBody(req);
         await stmts.rejectComment.run('rejected', body?.reason || null, now(), rejectMatch[1]);
         return json(res, 200, { ok: true });
@@ -302,7 +334,7 @@ export function buildApi(db, secret) {
 
       // ── Admin stats ──
       if (p === '/api/admin/stats' && method === 'GET') {
-        const session = await requireAuth(req, res); if (!session) return;
+        const session = await requireAdmin(req, res); if (!session) return;
         const totalRow = await stmts.countComments.get();
         const pendingRow = await stmts.countPending.get();
         const total = totalRow.n ?? totalRow.count ?? 0;
@@ -396,9 +428,9 @@ function decodeComment(row) {
 function prepareAll(db) {
   return {
     getAccountByEmail: db.prepare('SELECT * FROM accounts WHERE email = ?'),
-    getAccountById: db.prepare('SELECT id, email FROM accounts WHERE id = ?'),
-    getAccountByNeonSub: db.prepare('SELECT id, email FROM accounts WHERE neon_sub = ?'),
-    insertNeonAccount: db.prepare('INSERT INTO accounts (id, email, password_hash, salt, neon_sub, created_at) VALUES (?, ?, ?, ?, ?, ?)'),
+    getAccountById: db.prepare('SELECT id, email, role FROM accounts WHERE id = ?'),
+    getAccountByNeonSub: db.prepare('SELECT id, email, role FROM accounts WHERE neon_sub = ?'),
+    insertNeonAccount: db.prepare('INSERT INTO accounts (id, email, password_hash, salt, neon_sub, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
 
     listCategories: db.prepare('SELECT * FROM categories WHERE archived = 0 ORDER BY name'),
     getCategoryById: db.prepare('SELECT * FROM categories WHERE id = ?'),
@@ -432,6 +464,9 @@ function prepareAll(db) {
     filterCommentsTypeTag: db.prepare('SELECT * FROM comments WHERE deleted=0 AND type=? AND tags LIKE ? ORDER BY updated_at DESC LIMIT ?'),
     filterCommentsCatTag: db.prepare('SELECT * FROM comments WHERE deleted=0 AND category_id=? AND tags LIKE ? ORDER BY updated_at DESC LIMIT ?'),
     filterCommentsTypeCatTag: db.prepare('SELECT * FROM comments WHERE deleted=0 AND type=? AND category_id=? AND tags LIKE ? ORDER BY updated_at DESC LIMIT ?'),
+
+    listPublicComments: db.prepare("SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' ORDER BY updated_at DESC LIMIT ?"),
+    searchPublicComments: db.prepare("SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND (title LIKE ? OR body_text LIKE ?) ORDER BY updated_at DESC LIMIT ?"),
 
     syncComments: db.prepare('SELECT * FROM comments WHERE deleted=0 AND updated_at > ? ORDER BY updated_at'),
     syncCategories: db.prepare('SELECT * FROM categories WHERE updated_at > ? ORDER BY updated_at'),

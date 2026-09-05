@@ -24,6 +24,10 @@ describe('neon_sub migration (sqlite)', () => {
     const cols = raw.prepare(`PRAGMA table_info(accounts)`).all();
     assert.ok(cols.map((c) => c.name).includes('neon_sub'));
   });
+  it('accounts table has role column after migrate', async () => {
+    const cols = raw.prepare(`PRAGMA table_info(accounts)`).all();
+    assert.ok(cols.map((c) => c.name).includes('role'));
+  });
 });
 
 function fakeStmts() {
@@ -33,8 +37,8 @@ function fakeStmts() {
     getAccountByEmail: { get: async (email) => [...rows.values()].find((r) => r.email === email) || null },
     getAccountByNeonSub: { get: async (sub) => [...rows.values()].find((r) => r.neon_sub === sub) || null },
     insertNeonAccount: {
-      run: async (id, email, hash, salt, sub, at) => {
-        rows.set(id, { id, email, password_hash: hash, salt, neon_sub: sub, created_at: at });
+      run: async (id, email, hash, salt, sub, role, at) => {
+        rows.set(id, { id, email, password_hash: hash, salt, neon_sub: sub, role: role || 'user', created_at: at });
         return { changes: 1 };
       },
     },
@@ -44,15 +48,15 @@ function fakeStmts() {
 describe('findOrProvisionNeonAccount', () => {
   it('binds a known email without provisioning', async () => {
     const stmts = fakeStmts();
-    stmts.rows.set('acct1', { id: 'acct1', email: 'a@x.com', password_hash: 'h', salt: 's', neon_sub: null });
-    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-1', exp: 1, payload: { email: 'a@x.com' } });
+    stmts.rows.set('acct1', { id: 'acct1', email: 'a@x.com', password_hash: 'h', salt: 's', neon_sub: null, role: 'admin' });
+    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-1', exp: 1, payload: { email: 'a@x.com' } }, db);
     assert.equal(s.sub, 'acct1');
     assert.equal(stmts.rows.size, 1);
   });
 
   it('provisions an unknown email and rebinds via neon_sub', async () => {
     const stmts = fakeStmts();
-    const s1 = await findOrProvisionNeonAccount(stmts, { sub: 'neon-9', exp: 1, payload: { email: 'new@x.com' } });
+    const s1 = await findOrProvisionNeonAccount(stmts, { sub: 'neon-9', exp: 1, payload: { email: 'new@x.com' } }, db);
     assert.ok(s1.sub);
     assert.equal(stmts.rows.size, 1);
     const row = stmts.rows.get(s1.sub);
@@ -60,21 +64,21 @@ describe('findOrProvisionNeonAccount', () => {
     // provisioned rows must never verify via HMAC password login
     assert.equal(verifyPassword('anything', row.password_hash, row.salt), false);
     // second login with same sub but no email binds via neon_sub
-    const s2 = await findOrProvisionNeonAccount(stmts, { sub: 'neon-9', exp: 2, payload: {} });
+    const s2 = await findOrProvisionNeonAccount(stmts, { sub: 'neon-9', exp: 2, payload: {} }, db);
     assert.equal(s2.sub, s1.sub);
     assert.equal(stmts.rows.size, 1);
   });
 
   it('trims whitespace from email during provisioning', async () => {
     const stmts = fakeStmts();
-    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-trim', exp: 1, payload: { email: '  spaced@x.com  ' } });
+    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-trim', exp: 1, payload: { email: '  spaced@x.com  ' } }, db);
     assert.ok(s.sub);
     const row = stmts.rows.get(s.sub);
     assert.equal(row.email, 'spaced@x.com');
   });
 
   it('returns null when the token has neither email nor sub', async () => {
-    const s = await findOrProvisionNeonAccount(fakeStmts(), { sub: null, exp: 1, payload: {} });
+    const s = await findOrProvisionNeonAccount(fakeStmts(), { sub: null, exp: 1, payload: {} }, db);
     assert.equal(s, null);
   });
 });

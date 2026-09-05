@@ -272,8 +272,9 @@ async function migratePg(pool) {
     CREATE INDEX IF NOT EXISTS idx_comments_updated ON comments (updated_at);
     CREATE INDEX IF NOT EXISTS idx_categories_updated ON categories (updated_at);
   `);
-  // Upgrade for pre-existing pg DBs (fresh tables above lack neon_sub)
+  // Upgrade for pre-existing pg DBs (fresh tables above lack neon_sub/role)
   await pool.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS neon_sub TEXT UNIQUE`);
+  await pool.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`);
 }
 
 function migrateSqlite(db) {
@@ -284,6 +285,7 @@ function migrateSqlite(db) {
       password_hash TEXT NOT NULL,
       salt          TEXT NOT NULL,
       neon_sub      TEXT UNIQUE,
+      role          TEXT NOT NULL DEFAULT 'user',
       created_at    INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS categories (
@@ -316,6 +318,7 @@ function migrateSqlite(db) {
   // Idempotent upgrade for pre-existing sqlite DBs (no IF NOT EXISTS for ADD COLUMN)
   const cols = db.prepare(`PRAGMA table_info(accounts)`).all().map((c) => c.name);
   if (!cols.includes('neon_sub')) db.exec(`ALTER TABLE accounts ADD COLUMN neon_sub TEXT`);
+  if (!cols.includes('role')) db.exec(`ALTER TABLE accounts ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
   try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_neon_sub ON accounts (neon_sub)`); } catch {}
 }
 
@@ -326,10 +329,10 @@ async function seedAccountsPg(pool, email, password) {
   const salt = randomBytes(16).toString('hex');
   const hash = scryptSync(password, salt, 64).toString('hex');
   await pool.query(
-    'INSERT INTO accounts (id, email, password_hash, salt, created_at) VALUES ($1,$2,$3,$4,$5)',
-    [uid(), email, hash, salt, now()]
+    'INSERT INTO accounts (id, email, password_hash, salt, role, created_at) VALUES ($1,$2,$3,$4,$5,$6)',
+    [uid(), email, hash, salt, 'admin', now()]
   );
-  console.log(`[diagnotes] created account ${email} (pg)`);
+  console.log(`[diagnotes] created admin account ${email} (pg)`);
 }
 
 function seedAccountsSqlite(db, email, password) {
@@ -339,9 +342,9 @@ function seedAccountsSqlite(db, email, password) {
   const salt = randomBytes(16).toString('hex');
   const hash = scryptSync(password, salt, 64).toString('hex');
   db.prepare(
-    'INSERT INTO accounts (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)'
-  ).run(uid(), email, hash, salt, now());
-  console.log(`[diagnotes] created account ${email} (sqlite)`);
+    'INSERT INTO accounts (id, email, password_hash, salt, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(uid(), email, hash, salt, 'admin', now());
+  console.log(`[diagnotes] created admin account ${email} (sqlite)`);
 }
 
 async function seedDemoDataPg(pool) {
@@ -448,6 +451,17 @@ export function readOrCreateSecret(dataDir) {
     return s;
   }
   return randomBytes(32).toString('hex');
+}
+
+/** Get count of admin accounts (for first-admin auto-assignment). */
+export async function getAdminCount(db) {
+  const row = await db.prepare('SELECT COUNT(*) as n FROM accounts WHERE role = ?').get('admin');
+  return row ? Number(row.n ?? row.count ?? 0) : 0;
+}
+
+/** Set role on an account. */
+export async function setAccountRole(db, id, role) {
+  await db.prepare('UPDATE accounts SET role = ? WHERE id = ?').run(role, id);
 }
 
 export { dirname };

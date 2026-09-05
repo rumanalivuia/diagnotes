@@ -4,7 +4,7 @@ import CommentCard from './CommentCard.jsx';
 import { formatRel } from './Time.jsx';
 
 export default function LibraryView({ onEdit, onNew }) {
-  const { visible, filters, setFilters, view, recent, deleteComment, toast } = useDiag();
+  const { visible, filters, setFilters, view, recent, deleteComment, toast, isPublic, showLoginPrompt } = useDiag();
   const [searching] = useState(false);
 
   function handleDelete(comment, opts) {
@@ -44,6 +44,26 @@ export default function LibraryView({ onEdit, onNew }) {
     );
   }
 
+  // ── Favorites view ──
+  if (view === 'favorites') {
+    return (
+      <div className="content-grid">
+        <div className="results-col">
+          <div className="results-head"><h2>Favorites</h2><span className="hint">{visible.length} saved</span></div>
+          {visible.length === 0 ? (
+            <div className="empty-state"><div className="big">❤️</div><h3>No favorites yet</h3><p>Tap the heart icon on any comment to save it here.</p></div>
+          ) : (
+            visible.map((c) => (
+              <CommentCard key={c.id} comment={c}
+                onEdit={(cm) => onEdit(cm)}
+                onDelete={(cm) => handleDelete(cm)} />
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── Library view ──
   const activeCat = filters.categoryId;
   const isFiltered = filters.query || filters.categoryId || filters.tag;
@@ -64,9 +84,11 @@ export default function LibraryView({ onEdit, onNew }) {
           <div className="empty-state">
             <div className="big">{isFiltered ? '🔍' : '🗂️'}</div>
             <h3>{isFiltered ? 'No matching comments' : 'No comments here yet'}</h3>
-            <p>{isFiltered ? 'Try a different search or clear the filters.' : 'Create your first snippet — it will stay private until you submit it to the shared library.'}</p>
+            <p>{isFiltered ? 'Try a different search or clear the filters.' : isPublic ? 'Browse the shared library of diagnostic comments. Sign in to create your own.' : 'Create your first snippet — it will stay private until you submit it to the shared library.'}</p>
             {isFiltered ? (
               <button className="btn btn-secondary" onClick={() => setFilters({ type: filters.type, categoryId: null, tag: null, query: '', status: null })}>Clear filters</button>
+            ) : isPublic ? (
+              <button className="btn btn-primary" onClick={showLoginPrompt}>Sign in to contribute</button>
             ) : (
               <button className="btn btn-primary" onClick={onNew}>+ New comment</button>
             )}

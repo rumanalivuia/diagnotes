@@ -5,6 +5,7 @@ import TopBar from './components/TopBar.jsx';
 import LibraryView from './components/LibraryView.jsx';
 import AdminView from './components/AdminView.jsx';
 import CommentEditor from './components/CommentEditor.jsx';
+import CommentDetail from './components/CommentDetail.jsx';
 import Login from './components/Login.jsx';
 import Toasts from './components/Toasts.jsx';
 
@@ -18,9 +19,22 @@ function MobileFab({ onClick }) {
 }
 
 function Shell() {
-  const { view, setView } = useDiag();
+  const { view, setView, showLogin, hideLoginPrompt } = useDiag();
   const [editing, setEditing] = useState(null); // comment | { new: true }
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailId, setDetailId] = useState(null); // comment id for detail view
+
+  // Hash-based routing for comment detail
+  useEffect(() => {
+    function checkHash() {
+      const hash = window.location.hash;
+      const match = hash.match(/^#\/comment\/(.+)$/);
+      setDetailId(match ? match[1] : null);
+    }
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, []);
 
   const openNew = useCallback(() => {
     setEditing({ new: true });
@@ -38,10 +52,14 @@ function Shell() {
     setEditing(null);
   }, []);
 
+  const goBack = useCallback(() => {
+    window.location.hash = '';
+    setDetailId(null);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e) {
-      // Don't trigger shortcuts when typing in an input
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
       if (modalOpen) return;
@@ -57,6 +75,22 @@ function Shell() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [modalOpen, openNew]);
 
+  // If viewing a specific comment via deep link
+  if (detailId) {
+    return (
+      <div className="app">
+        <Rail onNew={openNew} />
+        <div className="app-header">
+          <TopBar onNew={openNew} />
+        </div>
+        <main className="main">
+          <CommentDetail commentId={detailId} onBack={goBack} />
+        </main>
+        <Toasts />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <Rail onNew={openNew} />
@@ -64,7 +98,7 @@ function Shell() {
         <TopBar onNew={openNew} />
       </div>
       <main className="main">
-        {view === 'library' || view === 'recent' ? (
+        {view === 'library' || view === 'recent' || view === 'favorites' ? (
           <LibraryView onEdit={openEdit} onNew={openNew} />
         ) : view === 'admin' ? (
           <AdminView onEdit={openEdit} />
@@ -72,7 +106,6 @@ function Shell() {
           <div className="empty-state"><h3>Unknown view</h3></div>
         )}
       </main>
-      {/* Floating Action Button — visible only below desktop breakpoint */}
       <MobileFab onClick={openNew} />
       {modalOpen && editing && (
         <CommentEditor
@@ -81,15 +114,15 @@ function Shell() {
           key={editing?.id || 'new'}
         />
       )}
+      {showLogin && <Login onClose={hideLoginPrompt} />}
       <Toasts />
     </div>
   );
 }
 
 export default function App() {
-  const { session, booted } = useDiag();
+  const { booted } = useDiag();
   if (!booted) return <SkeletonLoader />;
-  if (!session) return <Login />;
   return <Shell />;
 }
 

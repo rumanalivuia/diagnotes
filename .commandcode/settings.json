@@ -9,7 +9,8 @@
       "Shell(curl -s https://diagnotes.vercel.app/api/health)",
       "Shell(curl -s -o NUL -w \"HTTP %{http_code}, size %{size_download} bytes\" \"https://diagnotes.vercel.app/assets/index-CWZMSZkp.js\")",
       "Shell(curl -s -o NUL -w \"HTTP %{http_code}, size %{size_download} bytes\" \"https://diagnotes.vercel.app/assets/index-t1dkSNnU.css\")",
-      "Shell(curl -s -X POST https://diagnotes.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\"email\\\":\\\"diagnotes@center.local\\\",\\\"password\\\":\\\"devpassword\\\"}\")"
+      "Shell(curl -s -X POST https://diagnotes.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\"email\\\":\\\"diagnotes@center.local\\\",\\\"password\\\":\\\"devpassword\\\"}\")",
+      "Shell(curl -s -o NUL -w \"HTTP %{http_code}\" https://diagnotes.vercel.app/neonauth/token 2>&1)"
     ],
     "deny": [],
     "defaultMode": "default"
