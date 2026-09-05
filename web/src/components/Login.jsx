@@ -36,6 +36,12 @@ export default function Login({ onClose }) {
       return;
     }
 
+    // Client-side password validation for signup
+    if (isSignup && password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
     setBusy(true);
     try {
       if (isCenter) {
@@ -120,7 +126,7 @@ export default function Login({ onClose }) {
             onChange={(e) => setEmail(e.target.value)} placeholder="Center email address" required />
         </div>
         <div className="field">
-          <label htmlFor="password">Password{isSignup ? ' (min. 8 characters)' : ''}</label>
+          <label htmlFor="password">Password{isSignup ? ' (min. 8 characters, letters and numbers)' : ''}</label>
           <div className="pw-wrap">
             <input id="password" className="input pw-input" type={showPw ? 'text' : 'password'}
               autoComplete={isSignup ? 'new-password' : 'current-password'} value={password}
@@ -135,6 +141,11 @@ export default function Login({ onClose }) {
               )}
             </button>
           </div>
+          {isSignup && (
+            <p className="pw-hint mono" style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 4 }}>
+              Use at least 8 characters with a mix of letters and numbers
+            </p>
+          )}
         </div>
         <button className="btn btn-primary login-submit" style={{ width: '100%' }} disabled={busy} type="submit">
           {busy && <span className="spinner" />}
