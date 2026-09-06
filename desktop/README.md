@@ -6,7 +6,7 @@ Tauri v2 wrapper around the DiagNotes web app. Same codebase — the PRD's
 ## Requirements to build locally
 
 - **Rust toolchain** (`rustup` — stable). This machine currently has no Rust
-  installed, so the wrapper is *scaffolded and configured but not compiled*.
+  installed, so the wrapper is _scaffolded and configured but not compiled_.
   Install via https://rustup.rs, then:
 - Node 22+ (already present).
 

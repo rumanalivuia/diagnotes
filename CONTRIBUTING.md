@@ -77,6 +77,7 @@ Tests use sqlite temp dirs -- they never touch a real database.
 ## Making changes
 
 1. **Create a branch** from `main`
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -84,12 +85,14 @@ Tests use sqlite temp dirs -- they never touch a real database.
 2. **Make your changes** -- keep commits focused and atomic
 
 3. **Run tests** before committing
+
    ```bash
    npm test
    npm run build
    ```
 
 4. **Commit** with a clear message describing what and why
+
    ```
    feat: add bulk export to CSV
    fix: prevent duplicate category names

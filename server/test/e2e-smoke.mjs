@@ -23,25 +23,38 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
   const handled = await api(req, res);
-  if (!handled && !res.writableEnded) { res.writeHead(404); res.end('not found'); }
+  if (!handled && !res.writableEnded) {
+    res.writeHead(404);
+    res.end('not found');
+  }
 });
 await new Promise((r) => server.listen(0, r));
 const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
-let pass = 0, fail = 0;
+let pass = 0,
+  fail = 0;
 function ok(label, cond) {
-  if (cond) { pass++; console.log(`  ✔ ${label}`); }
-  else { fail++; console.error(`  ✘ ${label}`); }
+  if (cond) {
+    pass++;
+    console.log(`  ✔ ${label}`);
+  } else {
+    fail++;
+    console.error(`  ✘ ${label}`);
+  }
 }
 
 function req(method, path, body, token) {
   const url = new URL(path, baseUrl);
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined })
-    .then(async (r) => ({ status: r.status, body: await r.json() }));
+  return fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined }).then(
+    async (r) => ({ status: r.status, body: await r.json() })
+  );
 }
 
 async function run() {
@@ -49,11 +62,17 @@ async function run() {
   let r = await req('POST', '/api/auth/login', { email: 'bad@x.com', password: 'nope' });
   ok('rejects bad credentials', r.status === 401);
 
-  r = await req('POST', '/api/auth/login', { email: 'diagnotes@center.local', password: 'devpassword' });
+  r = await req('POST', '/api/auth/login', {
+    email: 'diagnotes@center.local',
+    password: 'devpassword',
+  });
   ok('login succeeds', r.status === 200 && !!r.body.token);
   const token = r.body.token;
 
-  r = await req('POST', '/api/auth/login', { email: '  diagnotes@center.local  ', password: 'devpassword' });
+  r = await req('POST', '/api/auth/login', {
+    email: '  diagnotes@center.local  ',
+    password: 'devpassword',
+  });
   ok('trims email whitespace', r.status === 200 && !!r.body.token);
 
   r = await req('GET', '/api/auth/me');
@@ -73,11 +92,17 @@ async function run() {
   r = await req('GET', '/api/comments?type=shared', null, token);
   ok('lists shared comments (>=5)', r.status === 200 && r.body.comments.length >= 5);
 
-  r = await req('POST', '/api/comments', {
-    type: 'personal', title: 'E2E test note',
-    body: [{ t: 'p', r: [{ x: 'Created by e2e smoke test' }] }],
-    tags: ['e2e'],
-  }, token);
+  r = await req(
+    'POST',
+    '/api/comments',
+    {
+      type: 'personal',
+      title: 'E2E test note',
+      body: [{ t: 'p', r: [{ x: 'Created by e2e smoke test' }] }],
+      tags: ['e2e'],
+    },
+    token
+  );
   ok('creates personal snippet', r.status === 201 && !!r.body.id);
   const noteId = r.body.id;
 
@@ -85,7 +110,10 @@ async function run() {
   ok('fetches snippet by id', r.status === 200 && r.body.comment.title === 'E2E test note');
 
   r = await req('GET', '/api/comments?q=E2E', null, token);
-  ok('search finds snippet', r.status === 200 && r.body.comments.some(c => c.title.includes('E2E')));
+  ok(
+    'search finds snippet',
+    r.status === 200 && r.body.comments.some((c) => c.title.includes('E2E'))
+  );
 
   r = await req('POST', `/api/comments/${noteId}/copy`, null, token);
   ok('bumps copy count', r.status === 200);
@@ -103,21 +131,38 @@ async function run() {
   ok('status is approved', r.body.comment.status === 'approved');
 
   // reject
-  const rejectNote = await req('POST', '/api/comments', {
-    type: 'personal', title: 'Reject me',
-    body: [{ t: 'p', r: [{ x: 'test' }] }],
-  }, token);
+  const rejectNote = await req(
+    'POST',
+    '/api/comments',
+    {
+      type: 'personal',
+      title: 'Reject me',
+      body: [{ t: 'p', r: [{ x: 'test' }] }],
+    },
+    token
+  );
   await req('POST', `/api/comments/${rejectNote.body.id}/submit`, null, token);
-  r = await req('POST', `/api/admin/comments/${rejectNote.body.id}/reject`, { reason: 'Duplicate' }, token);
+  r = await req(
+    'POST',
+    `/api/admin/comments/${rejectNote.body.id}/reject`,
+    { reason: 'Duplicate' },
+    token
+  );
   ok('admin rejects', r.status === 200);
   r = await req('GET', `/api/comments/${rejectNote.body.id}`, null, token);
   ok('rejection reason stored', r.body.comment.rejection_reason === 'Duplicate');
 
   // delete
-  const delNote = await req('POST', '/api/comments', {
-    type: 'personal', title: 'Delete me',
-    body: [{ t: 'p', r: [{ x: 'test' }] }],
-  }, token);
+  const delNote = await req(
+    'POST',
+    '/api/comments',
+    {
+      type: 'personal',
+      title: 'Delete me',
+      body: [{ t: 'p', r: [{ x: 'test' }] }],
+    },
+    token
+  );
   r = await req('DELETE', `/api/comments/${delNote.body.id}`, null, token);
   ok('soft-deletes comment', r.status === 200);
 
@@ -125,14 +170,25 @@ async function run() {
   r = await req('GET', '/api/sync?since=0', null, token);
   ok('sync pull works', r.status === 200 && r.body.comments.length >= 5 && r.body.serverTime > 0);
 
-  r = await req('POST', '/api/sync', {
-    comments: [{
-      id: 'e2e-offline-001', type: 'personal', title: 'Offline note',
-      body: [{ t: 'p', r: [{ x: 'created offline' }] }],
-      tags: ['offline'], status: 'draft',
-      created_at: Date.now() - 1000, updated_at: Date.now() - 1000,
-    }],
-  }, token);
+  r = await req(
+    'POST',
+    '/api/sync',
+    {
+      comments: [
+        {
+          id: 'e2e-offline-001',
+          type: 'personal',
+          title: 'Offline note',
+          body: [{ t: 'p', r: [{ x: 'created offline' }] }],
+          tags: ['offline'],
+          status: 'draft',
+          created_at: Date.now() - 1000,
+          updated_at: Date.now() - 1000,
+        },
+      ],
+    },
+    token
+  );
   ok('sync push creates offline comment', r.status === 200 && r.body.created === 1);
 
   r = await req('GET', '/api/comments/e2e-offline-001', null, token);
@@ -140,12 +196,20 @@ async function run() {
 
   console.log('\n── Admin Stats ──');
   r = await req('GET', '/api/admin/stats', null, token);
-  ok('stats endpoint works', r.status === 200 && typeof r.body.total === 'number' && Array.isArray(r.body.topCopied));
+  ok(
+    'stats endpoint works',
+    r.status === 200 && typeof r.body.total === 'number' && Array.isArray(r.body.topCopied)
+  );
 
   console.log(`\n── Results: ${pass} passed, ${fail} failed ──`);
   server.close();
-  try { rmSync(dataDir, { recursive: true, force: true }); } catch {}
+  try {
+    rmSync(dataDir, { recursive: true, force: true });
+  } catch {}
   process.exit(fail > 0 ? 1 : 0);
 }
 
-run().catch((err) => { console.error(err); process.exit(1); });
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

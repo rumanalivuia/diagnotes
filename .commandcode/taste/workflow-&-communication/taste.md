@@ -1,4 +1,5 @@
 # Workflow & communication
+
 - Prefers fanning out large, multi-part requests to parallel subagents rather than handling everything serially in one pass (e.g., explicitly ending a big task brief with "fan out subagent"). Confidence: 0.8
 - Prefers driving complex work through the harness's slash commands and specialized skills (/ultragoal, /security-review, /graphify, /init, ui-theme-designer) instead of free-form prompting. Confidence: 0.7
 - Communicates as terse, imperative one-liners that pack a long checklist of requirements into a single command message. Confidence: 0.7

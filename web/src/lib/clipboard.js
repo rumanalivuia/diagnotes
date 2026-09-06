@@ -38,7 +38,11 @@ export async function copyComment(comment) {
   ta.focus();
   ta.select();
   let ok = false;
-  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
   document.body.removeChild(ta);
   if (!ok) throw new Error('clipboard unavailable');
   return plain;

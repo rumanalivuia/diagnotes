@@ -13,7 +13,12 @@
     "web": "npm --workspace web run dev",
     "test": "npm --workspace server test && npm --workspace web test",
     "build": "npm --workspace web run build",
-    "vercel-build": "npm run build"
+    "vercel-build": "npm run build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=22.5"
@@ -23,5 +28,14 @@
     "@neon/env": "^1.2.0",
     "jose": "^6.2.10",
     "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^15.15.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3"
   }
 }

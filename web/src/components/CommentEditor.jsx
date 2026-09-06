@@ -16,18 +16,32 @@ export default function CommentEditor({ initial, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const titleRef = useRef(null);
-  const modalRef = useModalTrap(true, () => { if (!busy) onClose(); });
+  const modalRef = useModalTrap(true, () => {
+    if (!busy) onClose();
+  });
 
-  useEffect(() => { titleRef.current?.focus(); }, []);
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
 
   const canSubmitShared = type === 'personal' && textOf(body).trim();
 
   async function save({ submit = false } = {}) {
     if (busy) return;
-    if (!title.trim()) { setError('Give the comment a short title.'); return; }
-    if (type === 'shared' && !categoryId) { setError('Shared library comments need a category.'); return; }
-    setBusy(true); setError('');
-    const tags = tagsText.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (!title.trim()) {
+      setError('Give the comment a short title.');
+      return;
+    }
+    if (type === 'shared' && !categoryId) {
+      setError('Shared library comments need a category.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const tags = tagsText
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
     const comment = {
       id: initial?.id,
       type,
@@ -49,12 +63,26 @@ export default function CommentEditor({ initial, onClose }) {
       onClose();
     } catch (err) {
       setError(err.message || 'Could not save — are you online?');
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="modal-backdrop" onClick={() => { if (!busy) onClose(); }}>
-      <div ref={modalRef} className="modal modal-wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Comment editor">
+    <div
+      className="modal-backdrop"
+      onClick={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <div
+        ref={modalRef}
+        className="modal modal-wide"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Comment editor"
+      >
         <h2>{initial ? 'Edit comment' : 'New comment'}</h2>
         <p className="sub">
           {type === 'personal'
@@ -62,28 +90,53 @@ export default function CommentEditor({ initial, onClose }) {
             : 'Shared library comments are visible to the whole center.'}
         </p>
 
-        {error && <div className="login-error" role="alert">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            {error}
+          </div>
+        )}
 
         <div className="field">
           <label htmlFor="ce-title">Title</label>
-          <input id="ce-title" ref={titleRef} className="input" value={title}
+          <input
+            id="ce-title"
+            ref={titleRef}
+            className="input"
+            value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Hemolyzed sample — results may be affected" />
+            placeholder="e.g. Hemolyzed sample — results may be affected"
+          />
         </div>
 
         <div className="row-inline" style={{ display: 'flex', gap: 12 }}>
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="ce-cat">Category</label>
-            <select id="ce-cat" className="select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <select
+              id="ce-cat"
+              className="select"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
               <option value="">No category</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="field" style={{ flex: 2 }}>
-            <label htmlFor="ce-tags">Tags <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}>(comma-separated)</span></label>
-            <input id="ce-tags" className="input" value={tagsText}
+            <label htmlFor="ce-tags">
+              Tags{' '}
+              <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}>(comma-separated)</span>
+            </label>
+            <input
+              id="ce-tags"
+              className="input"
+              value={tagsText}
               onChange={(e) => setTagsText(e.target.value)}
-              placeholder="urgent-flag, pediatric, follow-up" />
+              placeholder="urgent-flag, pediatric, follow-up"
+            />
           </div>
         </div>
 
@@ -93,9 +146,17 @@ export default function CommentEditor({ initial, onClose }) {
         </div>
 
         <div className="modal-actions">
-          <button className="btn btn-ghost" disabled={busy} onClick={onClose}>Cancel</button>
+          <button className="btn btn-ghost" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
           {canSubmitShared && !initial && (
-            <button className="btn btn-secondary" disabled={busy} onClick={() => save({ submit: true })}>Save &amp; submit</button>
+            <button
+              className="btn btn-secondary"
+              disabled={busy}
+              onClick={() => save({ submit: true })}
+            >
+              Save &amp; submit
+            </button>
           )}
           <button className="btn btn-primary" disabled={busy} onClick={() => save()}>
             {busy ? 'Saving…' : initial ? 'Save changes' : 'Save'}

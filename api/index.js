@@ -1,5 +1,6 @@
 import { openDb, readOrCreateSecret } from '../server/lib/db.js';
 import { buildApi } from '../server/lib/api.js';
+import { applySecurityHeaders } from '../server/lib/security.js';
 
 let cached = null;
 let cachedSecret = null;
@@ -57,7 +58,8 @@ async function getHandler() {
 }
 
 export default async function handler(req, res) {
-  const allowed = (process.env.CORS_ORIGIN || '*').split(',').map(s=>s.trim());
+  applySecurityHeaders(res);
+  const allowed = (process.env.CORS_ORIGIN || '*').split(',').map((s) => s.trim());
   const origin = req.headers.origin;
   if (allowed.includes('*')) res.setHeader('Access-Control-Allow-Origin', '*');
   else if (origin && allowed.includes(origin)) {

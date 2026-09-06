@@ -16,13 +16,13 @@ The interface reads as a clinical instrument: cool paper background, IBM Plex ty
 
 ## Heuristic Scores
 
-| # | Heuristic | Score | Key Finding |
-|---|---|---|---|
-| 1 | First impression | 6/10 | Clear category, but the visual identity is indistinguishable from generic medical SaaS |
-| 2 | Hierarchy | 7/10 | Search + copy hero is correct; card-to-card hierarchy is flat |
-| 3 | Color voice | 5/10 | Functional status colors work; the palette is safe to the point of being generic |
-| 4 | Type voice | 7/10 | IBM Plex is a strong choice; mono readouts sell the instrument feel |
-| 5 | Interaction feel | 6/10 | Copy feedback is good; missing loading, keyboard, and focus states |
+| #   | Heuristic        | Score | Key Finding                                                                            |
+| --- | ---------------- | ----- | -------------------------------------------------------------------------------------- |
+| 1   | First impression | 6/10  | Clear category, but the visual identity is indistinguishable from generic medical SaaS |
+| 2   | Hierarchy        | 7/10  | Search + copy hero is correct; card-to-card hierarchy is flat                          |
+| 3   | Color voice      | 5/10  | Functional status colors work; the palette is safe to the point of being generic       |
+| 4   | Type voice       | 7/10  | IBM Plex is a strong choice; mono readouts sell the instrument feel                    |
+| 5   | Interaction feel | 6/10  | Copy feedback is good; missing loading, keyboard, and focus states                     |
 
 **Total: 31/50**
 
@@ -57,6 +57,7 @@ The interface reads as a clinical instrument: cool paper background, IBM Plex ty
 **Location**: `web/src/components/CommentEditor.jsx:54`, `web/src/components/AdminView.jsx:86`
 
 Modals use `onClick` on the backdrop to close, but do not:
+
 - Move focus into the modal on open
 - Trap Tab inside the modal
 - Set `inert` on the background content
@@ -71,6 +72,7 @@ A keyboard user can Tab out of the modal into the background, which is still int
 **Location**: `web/src/App.jsx`, `web/src/components/TopBar.jsx`
 
 The primary user action is search → copy. There are no keyboard shortcuts to:
+
 - Focus the search bar (`/` or `Ctrl+K`)
 - Copy the first/selected result (`Ctrl+Enter` or `C`)
 - Create a new comment (`N`)
@@ -125,29 +127,30 @@ Empty states use emoji (📋, 🔍, 🗂️) as the hero illustration. Emoji ren
 
 ## Considered but Rejected
 
-| Location | Candidate | Rejected because |
-|---|---|---|
-| `styles.css:9` `--paper: #f3f6f8` | Warm the background | The cool paper is a deliberate identity choice per DECISIONS.md; warming it would drift toward generic SaaS cream |
-| `styles.css:33` `--rail: 264px` | Narrow the rail | The rail needs room for category names + tag counts;264px is already tight for some names |
-| `CommentCard.jsx:40` card title | Add category prefix to title | The category chip already exists in the meta row; prefixing would duplicate |
-| `TopBar.jsx:12` New button | Move "New" to the rail footer | The button is already there (`Rail.jsx:87`); top bar placement serves the mobile breakpoint |
+| Location                          | Candidate                     | Rejected because                                                                                                  |
+| --------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `styles.css:9` `--paper: #f3f6f8` | Warm the background           | The cool paper is a deliberate identity choice per DECISIONS.md; warming it would drift toward generic SaaS cream |
+| `styles.css:33` `--rail: 264px`   | Narrow the rail               | The rail needs room for category names + tag counts;264px is already tight for some names                         |
+| `CommentCard.jsx:40` card title   | Add category prefix to title  | The category chip already exists in the meta row; prefixing would duplicate                                       |
+| `TopBar.jsx:12` New button        | Move "New" to the rail footer | The button is already there (`Rail.jsx:87`); top bar placement serves the mobile breakpoint                       |
 
 ---
 
 ## Next Modes
 
-| Mode | Why |
-|---|---|
-| `/design a11y` | Fix the P0 focus ring issue, P1 modal trap, and keyboard path |
-| `/design interaction` | Add keyboard shortcuts, loading states, expand affordance |
-| `/design recolor` | Push the palette beyond safe medical teal toward a more distinctive identity |
-| `/design refine` | Tighten spacing, card density, and the loading/empty states |
+| Mode                  | Why                                                                          |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `/design a11y`        | Fix the P0 focus ring issue, P1 modal trap, and keyboard path                |
+| `/design interaction` | Add keyboard shortcuts, loading states, expand affordance                    |
+| `/design recolor`     | Push the palette beyond safe medical teal toward a more distinctive identity |
+| `/design refine`      | Tighten spacing, card density, and the loading/empty states                  |
 
 ---
 
 ## Verification
 
 ### Verified
+
 - Read all11 component files + styles.css + AppContext.jsx + sync.js + store.js
 - Confirmed `prefers-reduced-motion` block exists (styles.css:598-600)
 - Confirmed `aria-live="polite"` on toasts (Toasts.jsx:6)
@@ -157,6 +160,7 @@ Empty states use emoji (📋, 🔍, 🗂️) as the hero illustration. Emoji ren
 - Confirmed `:focus-visible` global rule exists (styles.css:51)
 
 ### Not verified
+
 - Did not test with a screen reader (requires live browser)
 - Did not test at200% zoom (requires live browser)
 - Did not test at320px width (requires live browser)

@@ -14,7 +14,7 @@
 
 /** Plain text of a run array. */
 export function runsText(runs = []) {
-  return runs.map((r) => (typeof r === 'string' ? r : r.x ?? '')).join('');
+  return runs.map((r) => (typeof r === 'string' ? r : (r.x ?? ''))).join('');
 }
 
 /** Plain-text projection of a block array (used for search + plain clipboard). */
@@ -33,8 +33,7 @@ export function textOf(blocks = []) {
 
 /** Lightweight HTML for the rich-text clipboard payload. Built from text nodes only. */
 export function htmlOf(blocks = []) {
-  const esc = (s) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const runs = (runs = []) => {
     let out = '';
     for (const r of runs) {

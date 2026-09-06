@@ -75,14 +75,20 @@ export function friendlyAuthError(err, fallback) {
   const msg = (err?.message || err?.error?.message || '').toLowerCase();
   const code = (err?.code || err?.error?.code || '').toUpperCase();
   if (/neon-token-unavailable/i.test(msg)) return 'Session expired - please sign in again';
-  if (/invalid email or password|invalid credentials|unauthorized/i.test(msg)) return 'Invalid email or password';
-  if (/user already exists|already.*registered|already.*exists/i.test(msg)) return 'An account with this email already exists — sign in instead';
-  if (code === 'PASSWORD_TOO_SHORT' || /password.*(short|weak|length|8|characters|min)/i.test(msg)) return 'Password is too short — use at least 8 characters';
-  if (code === 'INVALID_PASSWORD' || /invalid.*password|password.*invalid|password.*not.*valid/i.test(msg)) return 'Password must be at least 8 characters';
+  if (/invalid email or password|invalid credentials|unauthorized/i.test(msg))
+    return 'Invalid email or password';
+  if (/user already exists|already.*registered|already.*exists/i.test(msg))
+    return 'An account with this email already exists — sign in instead';
+  if (code === 'PASSWORD_TOO_SHORT' || /password.*(short|weak|length|8|characters|min)/i.test(msg))
+    return 'Password is too short — use at least 8 characters';
+  if (
+    code === 'INVALID_PASSWORD' ||
+    /invalid.*password|password.*invalid|password.*not.*valid/i.test(msg)
+  )
+    return 'Password must be at least 8 characters';
   if (/password.*required/i.test(msg)) return 'Password is required';
   if (/email.*invalid|invalid.*email/i.test(msg)) return 'Please enter a valid email address';
-  if (code === 'USER_ALREADY_EXISTS') return 'An account with this email already exists — sign in instead';
-  return (err?.message || err?.error?.message || '') || fallback;
+  if (code === 'USER_ALREADY_EXISTS')
+    return 'An account with this email already exists — sign in instead';
+  return err?.message || err?.error?.message || '' || fallback;
 }
-
-

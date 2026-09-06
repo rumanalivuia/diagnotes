@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition */
 import { store } from './store.js';
 import { getAuthToken, isNeonAuth, refreshNeonToken } from './neonAuth.js';
 
@@ -77,8 +78,13 @@ async function api(path, opts = {}) {
     throw new Error('unauthorized');
   }
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`server ${res.status}: ${text.slice(0, 200)}`);
+    // Avoid leaking raw server text (may contain internals) into thrown message.
+    let code = 'server_error';
+    try {
+      const j = await res.clone().json();
+      if (j?.error) code = String(j.error).slice(0, 80);
+    } catch {}
+    throw new Error(`server ${res.status}: ${code}`);
   }
   return res.json();
 }
@@ -113,7 +119,9 @@ export async function syncNow() {
   try {
     // 1. Push queued local mutations (drop any stale record lacking an id)
     const queue = await store.getAll('queue');
-    const valid = queue.filter((m) => m.comment && typeof m.comment.id === 'string' && m.comment.id);
+    const valid = queue.filter(
+      (m) => m.comment && typeof m.comment.id === 'string' && m.comment.id
+    );
     const dropped = queue.length - valid.length;
     for (const m of queue) if (!valid.includes(m)) await store.delete('queue', m.id);
     if (valid.length) {
@@ -123,19 +131,30 @@ export async function syncNow() {
     }
     state.pending = 0;
 
-    // 2. Pull server deltas
+    // 2. Pull server deltas (paginate if hasMore)
     const last = (await store.kvGet('lastSync')) || 0;
-    const data = await api('/sync?since=' + encodeURIComponent(last));
+    let cursor = last;
+    let serverTime = null;
     let changed = 0;
-    for (const c of data.comments || []) if (await applyComment(normalizeComment(c))) changed++;
-    if (data.categories) await store.putMany('categories', data.categories);
-    if (data.serverTime) await store.kvSet('lastSync', data.serverTime);
+    let pages = 0;
+    // eslint-disable-next-line no-constant-condition
+    do {
+      const data = await api('/sync?since=' + encodeURIComponent(cursor) + '&limit=1000');
+      for (const c of data.comments || []) if (await applyComment(normalizeComment(c))) changed++;
+      if (data.categories) await store.putMany('categories', data.categories);
+      serverTime = data.serverTime || serverTime;
+      if (!data.hasMore || !data.comments?.length) break;
+      cursor = Math.max(...data.comments.map((c) => c.updated_at || 0), cursor);
+      pages++;
+      if (pages > 10) break; // safety: 10k rows max per sync
+    } while (true);
+    if (serverTime) await store.kvSet('lastSync', serverTime);
 
-    state.lastSync = data.serverTime || Date.now();
+    state.lastSync = serverTime || Date.now();
     state.online = true;
     emit(EVENT.STATE, getState());
     if (changed) emit(EVENT.DATA, { changed });
-    return data;
+    return { serverTime: state.lastSync, changed };
   } catch (err) {
     state.online = false;
     state.error = err.message;

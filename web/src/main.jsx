@@ -9,14 +9,21 @@ import { AppProvider } from './AppContext.jsx';
 
 class ErrorBoundary extends Component {
   state = { error: null };
-  static getDerivedStateFromError(error) { return { error }; }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
   render() {
     if (this.state.error) {
       return (
         <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
           <h2>Something went wrong</h2>
           <pre style={{ whiteSpace: 'pre-wrap', color: '#b00' }}>{String(this.state.error)}</pre>
-          <button onClick={() => { this.setState({ error: null }); window.location.reload(); }}>
+          <button
+            onClick={() => {
+              this.setState({ error: null });
+              window.location.reload();
+            }}
+          >
             Reload
           </button>
         </div>

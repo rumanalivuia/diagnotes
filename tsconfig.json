@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "jsx": "react-jsx",
+    "strict": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["web/src/*"]
+    }
+  },
+  "include": ["server/**/*.js", "web/src/**/*.{js,jsx}", "api/**/*.js", "eslint.config.js"],
+  "exclude": ["node_modules", "web/dist", "graphify-out", "desktop/src-tauri/target"]
+}

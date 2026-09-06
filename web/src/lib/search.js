@@ -11,7 +11,9 @@ export function matchesQuery(comment, query) {
   if (!q) return true;
   return (
     (comment.title || '').toLowerCase().includes(q) ||
-    textOf(comment.body || []).toLowerCase().includes(q)
+    textOf(comment.body || [])
+      .toLowerCase()
+      .includes(q)
   );
 }
 
@@ -30,5 +32,7 @@ export function filterComments(comments, { type, categoryId, tag, query, status 
 export function allTags(comments) {
   const counts = new Map();
   for (const c of comments) for (const t of c.tags || []) counts.set(t, (counts.get(t) || 0) + 1);
-  return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }

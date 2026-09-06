@@ -18,7 +18,9 @@ export default function CommentDetail({ commentId, onBack }) {
             <div className="big">🔍</div>
             <h3>Comment not found</h3>
             <p>This comment may not be synced yet, or the link may be incorrect.</p>
-            <button className="btn btn-secondary" onClick={onBack}>← Back to library</button>
+            <button className="btn btn-secondary" onClick={onBack}>
+              ← Back to library
+            </button>
           </div>
         </div>
       </div>
@@ -40,20 +42,36 @@ export default function CommentDetail({ commentId, onBack }) {
   return (
     <div className="content-grid">
       <div className="results-col">
-        <button className="link-btn" onClick={onBack} style={{ marginBottom: 14 }}>← Back to library</button>
+        <button className="link-btn" onClick={onBack} style={{ marginBottom: 14 }}>
+          ← Back to library
+        </button>
         <article className="card" style={{ borderLeftColor: 'var(--teal)' }}>
           <div className="card-header">
-            <h2 className="card-title" style={{ fontSize: 18 }}>{comment.title}</h2>
-            <button className={`copy-btn ${copied ? 'done' : ''}`} onClick={handleCopy} aria-label="Copy comment">
+            <h2 className="card-title" style={{ fontSize: 18 }}>
+              {comment.title}
+            </h2>
+            <button
+              className={`copy-btn ${copied ? 'done' : ''}`}
+              onClick={handleCopy}
+              aria-label="Copy comment"
+            >
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <div className="card-body" style={{ maxHeight: 'none' }}>{renderBlocks(comment.body || [])}</div>
+          <div className="card-body" style={{ maxHeight: 'none' }}>
+            {renderBlocks(comment.body || [])}
+          </div>
           <div className="card-meta">
             {cat && <span className="chip cat">{cat.name}</span>}
-            {(comment.tags || []).map((t) => <span key={t} className="chip">{t}</span>)}
+            {(comment.tags || []).map((t) => (
+              <span key={t} className="chip">
+                {t}
+              </span>
+            ))}
             {comment.type === 'shared' && (
-              <span className={`chip status ${comment.status}`}>{comment.status.replace('_', ' ')}</span>
+              <span className={`chip status ${comment.status}`}>
+                {comment.status.replace('_', ' ')}
+              </span>
             )}
           </div>
           <div className="mono" style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-faint)' }}>

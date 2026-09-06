@@ -41,19 +41,42 @@ test('search matches body text', () => {
 
 test('filter combines type + category + tag with AND', () => {
   const comments = [
-    { id: '1', type: 'shared', category_id: 'catA', tags: ['urgent'], status: 'approved', title: 'A', body: [] },
-    { id: '2', type: 'shared', category_id: 'catA', tags: ['normal'], status: 'approved', title: 'B', body: [] },
-    { id: '3', type: 'personal', category_id: 'catA', tags: ['urgent'], status: 'draft', title: 'C', body: [] },
+    {
+      id: '1',
+      type: 'shared',
+      category_id: 'catA',
+      tags: ['urgent'],
+      status: 'approved',
+      title: 'A',
+      body: [],
+    },
+    {
+      id: '2',
+      type: 'shared',
+      category_id: 'catA',
+      tags: ['normal'],
+      status: 'approved',
+      title: 'B',
+      body: [],
+    },
+    {
+      id: '3',
+      type: 'personal',
+      category_id: 'catA',
+      tags: ['urgent'],
+      status: 'draft',
+      title: 'C',
+      body: [],
+    },
   ];
   const out = filterComments(comments, { type: 'shared', categoryId: 'catA', tag: 'urgent' });
-  assert.deepEqual(out.map((c) => c.id), ['1']);
+  assert.deepEqual(
+    out.map((c) => c.id),
+    ['1']
+  );
 });
 
 test('allTags aggregates with counts', () => {
-  const tags = allTags([
-    { tags: ['a', 'b'] },
-    { tags: ['a'] },
-    { tags: ['c'] },
-  ]);
+  const tags = allTags([{ tags: ['a', 'b'] }, { tags: ['a'] }, { tags: ['c'] }]);
   assert.deepEqual(tags[0], { name: 'a', count: 2 });
 });

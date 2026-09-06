@@ -13,12 +13,13 @@ function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
+      const oldVersion = event.oldVersion;
       if (!db.objectStoreNames.contains('kv')) {
         db.createObjectStore('kv', { keyPath: 'key' });
-      } else {
-        // v1 shipped kv with out-of-line keys; rebuild it with keyPath.
+      } else if (oldVersion < 2) {
+        // v1 shipped kv with out-of-line keys; rebuild only when upgrading from v1.
         db.deleteObjectStore('kv');
         db.createObjectStore('kv', { keyPath: 'key' });
       }
@@ -52,7 +53,9 @@ function tx(store, mode, fn) {
         const os = t.objectStore(store);
         let result;
         const wrapped = (req) => {
-          req.onsuccess = () => { result = req.result; };
+          req.onsuccess = () => {
+            result = req.result;
+          };
           return req;
         };
         fn(os, wrapped);

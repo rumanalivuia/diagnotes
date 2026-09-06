@@ -1,10 +1,23 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { store } from './lib/store.js';
 import * as sync from './lib/sync.js';
 import { filterComments, allTags } from './lib/search.js';
 import {
-  authClient, isNeonAuth, getNeonToken, getAuthToken, refreshNeonToken,
-  clearNeonTokenCache, friendlyAuthError,
+  authClient,
+  isNeonAuth,
+  getNeonToken,
+  getAuthToken,
+  refreshNeonToken,
+  clearNeonTokenCache,
+  friendlyAuthError,
 } from './lib/neonAuth.js';
 
 const Ctx = createContext(null);
@@ -26,7 +39,9 @@ function getInitialTheme() {
 
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem('dn_theme', t); } catch {}
+  try {
+    localStorage.setItem('dn_theme', t);
+  } catch {}
 }
 
 export function AppProvider({ children }) {
@@ -43,7 +58,9 @@ export function AppProvider({ children }) {
   const prevStatusRef = useRef(new Map()); // id -> status for notification detection
 
   /* ── theme ── */
-  useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   // Listen for OS theme changes
   useEffect(() => {
@@ -58,7 +75,7 @@ export function AppProvider({ children }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme((t) => t === 'dark' ? 'light' : 'dark');
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   }, []);
 
   /* ── toast helpers ── */
@@ -84,7 +101,9 @@ export function AppProvider({ children }) {
 
   const toggleFavorite = useCallback(async (commentId) => {
     const ids = (await store.kvGet('favorites')) || [];
-    const next = ids.includes(commentId) ? ids.filter((id) => id !== commentId) : [...ids, commentId];
+    const next = ids.includes(commentId)
+      ? ids.filter((id) => id !== commentId)
+      : [...ids, commentId];
     await store.kvSet('favorites', next);
     setFavorites(next);
   }, []);
@@ -117,23 +136,28 @@ export function AppProvider({ children }) {
         const d = await comRes.json();
         setComments(d.comments || []);
       }
-    } catch { /* offline or error — show empty state */ }
+    } catch {
+      /* offline or error — show empty state */
+    }
   }, [apiBase]);
 
   /* ── approval notification detection ── */
-  const checkApprovalNotifications = useCallback(async (updatedComments) => {
-    const prev = prevStatusRef.current;
-    for (const c of updatedComments) {
-      const oldStatus = prev.get(c.id);
-      if (oldStatus === 'pending_approval' && c.status === 'approved') {
-        toast.success(`"${c.title}" has been approved`);
-      } else if (oldStatus === 'pending_approval' && c.status === 'rejected') {
-        const reason = c.rejection_reason ? `: ${c.rejection_reason}` : '';
-        toast.info(`"${c.title}" was rejected${reason}`);
+  const checkApprovalNotifications = useCallback(
+    async (updatedComments) => {
+      const prev = prevStatusRef.current;
+      for (const c of updatedComments) {
+        const oldStatus = prev.get(c.id);
+        if (oldStatus === 'pending_approval' && c.status === 'approved') {
+          toast.success(`"${c.title}" has been approved`);
+        } else if (oldStatus === 'pending_approval' && c.status === 'rejected') {
+          const reason = c.rejection_reason ? `: ${c.rejection_reason}` : '';
+          toast.info(`"${c.title}" was rejected${reason}`);
+        }
+        prev.set(c.id, c.status);
       }
-      prev.set(c.id, c.status);
-    }
-  }, [toast]);
+    },
+    [toast]
+  );
 
   /* ── boot / restore session ── */
   useEffect(() => {
@@ -150,7 +174,9 @@ export function AppProvider({ children }) {
             await reloadLocal();
             sync.syncNow().catch(() => {});
           }
-        } catch { /* no session: public mode */ }
+        } catch {
+          /* no session: public mode */
+        }
       } else {
         const token = await store.kvGet('token');
         if (token) {
@@ -182,67 +208,89 @@ export function AppProvider({ children }) {
       if (kind === sync.EVENT.ERROR) toast.error('Sync failed — offline changes are safe.');
     });
     return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, []);
 
-  const afterAuth = useCallback(async (account) => {
-    await store.kvSet('account', account);
-    setSession({ account });
-    await reloadLocal();
-    try {
-      await sync.syncNow(); // populate local from server
-    } catch { /* offline: local data still usable */ }
-    await reloadLocal(); // reflect synced rows (incl. any DATA reload that was missed)
-  }, [reloadLocal]);
+  const afterAuth = useCallback(
+    async (account) => {
+      await store.kvSet('account', account);
+      setSession({ account });
+      await reloadLocal();
+      try {
+        await sync.syncNow(); // populate local from server
+      } catch {
+        /* offline: local data still usable */
+      }
+      await reloadLocal(); // reflect synced rows (incl. any DATA reload that was missed)
+    },
+    [reloadLocal]
+  );
 
-  const loginCenter = useCallback(async (email, password) => {
-    const res = await fetch(`${apiBase()}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) throw new Error('Invalid email or password');
-    const data = await res.json();
-    await store.kvSet('token', data.token);
-    setSession({ token: data.token, account: data.account });
-    await afterAuth(data.account);
-  }, [afterAuth]);
+  const loginCenter = useCallback(
+    async (email, password) => {
+      const res = await fetch(`${apiBase()}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) throw new Error('Invalid email or password');
+      const data = await res.json();
+      await store.kvSet('token', data.token);
+      setSession({ token: data.token, account: data.account });
+      await afterAuth(data.account);
+    },
+    [afterAuth]
+  );
 
-  const login = useCallback(async (email, password) => {
-    if (isNeonAuth) {
-      const { error } = await authClient.signIn.email({ email, password });
-      if (error) throw new Error(friendlyAuthError(error, 'Sign-in failed'));
+  const login = useCallback(
+    async (email, password) => {
+      if (isNeonAuth) {
+        const { error } = await authClient.signIn.email({ email, password });
+        if (error) throw new Error(friendlyAuthError(error, 'Sign-in failed'));
+        const { data } = await authClient.getSession();
+        if (!data?.user) throw new Error('Sign-in failed — no session');
+        await getNeonToken(true);
+        await afterAuth({ email: data.user.email, name: data.user.name });
+        return;
+      }
+      const res = await fetch(`${apiBase()}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) throw new Error('Invalid email or password');
+      const data = await res.json();
+      await store.kvSet('token', data.token);
+      setSession({ token: data.token, account: data.account });
+      await afterAuth(data.account);
+    },
+    [afterAuth]
+  );
+
+  const signup = useCallback(
+    async (name, email, password) => {
+      if (!isNeonAuth) throw new Error('Sign-up is not enabled on this server');
+      const { error } = await authClient.signUp.email({
+        name: name || email.split('@')[0],
+        email,
+        password,
+      });
+      if (error) throw new Error(friendlyAuthError(error, 'Sign-up failed'));
       const { data } = await authClient.getSession();
-      if (!data?.user) throw new Error('Sign-in failed — no session');
+      if (!data?.user) throw new Error('Sign-up succeeded — please sign in');
       await getNeonToken(true);
       await afterAuth({ email: data.user.email, name: data.user.name });
-      return;
-    }
-    const res = await fetch(`${apiBase()}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) throw new Error('Invalid email or password');
-    const data = await res.json();
-    await store.kvSet('token', data.token);
-    setSession({ token: data.token, account: data.account });
-    await afterAuth(data.account);
-  }, [afterAuth]);
-
-  const signup = useCallback(async (name, email, password) => {
-    if (!isNeonAuth) throw new Error('Sign-up is not enabled on this server');
-    const { error } = await authClient.signUp.email({ name: name || email.split('@')[0], email, password });
-    if (error) throw new Error(friendlyAuthError(error, 'Sign-up failed'));
-    const { data } = await authClient.getSession();
-    if (!data?.user) throw new Error('Sign-up succeeded — please sign in');
-    await getNeonToken(true);
-    await afterAuth({ email: data.user.email, name: data.user.name });
-  }, [afterAuth]);
+    },
+    [afterAuth]
+  );
 
   const logout = useCallback(async () => {
     if (isNeonAuth) {
-      try { await authClient.signOut(); } catch { /* already out */ }
+      try {
+        await authClient.signOut();
+      } catch {
+        /* already out */
+      }
       clearNeonTokenCache();
     }
     await sync.clearAuth();
@@ -262,7 +310,10 @@ export function AppProvider({ children }) {
     }, 60_000);
     const on = () => sync.syncNow().catch(() => {});
     window.addEventListener('online', on);
-    return () => { clearInterval(id); window.removeEventListener('online', on); };
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('online', on);
+    };
   }, [session]);
 
   /* ── mutations ── */
@@ -272,19 +323,29 @@ export function AppProvider({ children }) {
     return saved;
   }, []);
 
-  const deleteComment = useCallback(async (id) => {
-    await sync.removeComment(id);
-    await reloadLocal();
-  }, [reloadLocal]);
+  const deleteComment = useCallback(
+    async (id) => {
+      await sync.removeComment(id);
+      await reloadLocal();
+    },
+    [reloadLocal]
+  );
 
-  const copyAndTrack = useCallback(async (comment) => {
-    await sync.recordCopy(comment);
-    await reloadLocal();
-  }, [reloadLocal]);
+  const copyAndTrack = useCallback(
+    async (comment) => {
+      await sync.recordCopy(comment);
+      await reloadLocal();
+    },
+    [reloadLocal]
+  );
 
   const doSyncNow = useCallback(async () => {
-    try { await sync.syncNow(); toast.success('Synced'); }
-    catch { toast.error('Cannot reach the server right now'); }
+    try {
+      await sync.syncNow();
+      toast.success('Synced');
+    } catch {
+      toast.error('Cannot reach the server right now');
+    }
   }, [toast]);
 
   /* ── server-side admin / submission actions ── */
@@ -316,36 +377,51 @@ export function AppProvider({ children }) {
     return res.json();
   }, []);
 
-  const approveShared = useCallback(async (id) => {
-    await serverCall(`/admin/comments/${id}/approve`, { method: 'POST' });
-    await reloadLocal();
-    toast.success('Approved — now visible to everyone');
-  }, [serverCall, reloadLocal, toast]);
+  const approveShared = useCallback(
+    async (id) => {
+      await serverCall(`/admin/comments/${id}/approve`, { method: 'POST' });
+      await reloadLocal();
+      toast.success('Approved — now visible to everyone');
+    },
+    [serverCall, reloadLocal, toast]
+  );
 
-  const rejectShared = useCallback(async (id, reason) => {
-    await serverCall(`/admin/comments/${id}/reject`, { method: 'POST', json: { reason } });
-    await reloadLocal();
-    toast.info('Submission rejected');
-  }, [serverCall, reloadLocal, toast]);
+  const rejectShared = useCallback(
+    async (id, reason) => {
+      await serverCall(`/admin/comments/${id}/reject`, { method: 'POST', json: { reason } });
+      await reloadLocal();
+      toast.info('Submission rejected');
+    },
+    [serverCall, reloadLocal, toast]
+  );
 
-  const submitToShared = useCallback(async (comment) => {
-    await sync.syncNow().catch(() => {});
-    await serverCall(`/comments/${comment.id}/submit`, { method: 'POST' });
-    await sync.syncNow().catch(() => {});
-    await reloadLocal();
-    toast.success('Submitted for approval');
-  }, [serverCall, reloadLocal, toast]);
+  const submitToShared = useCallback(
+    async (comment) => {
+      await sync.syncNow().catch(() => {});
+      await serverCall(`/comments/${comment.id}/submit`, { method: 'POST' });
+      await sync.syncNow().catch(() => {});
+      await reloadLocal();
+      toast.success('Submitted for approval');
+    },
+    [serverCall, reloadLocal, toast]
+  );
 
-  const addCategory = useCallback(async (name) => {
-    const out = await serverCall('/categories', { method: 'POST', json: { name } });
-    await reloadLocal();
-    return out;
-  }, [serverCall, reloadLocal]);
+  const addCategory = useCallback(
+    async (name) => {
+      const out = await serverCall('/categories', { method: 'POST', json: { name } });
+      await reloadLocal();
+      return out;
+    },
+    [serverCall, reloadLocal]
+  );
 
-  const updateCategory = useCallback(async (id, patch) => {
-    await serverCall(`/categories/${id}`, { method: 'PATCH', json: patch });
-    await reloadLocal();
-  }, [serverCall, reloadLocal]);
+  const updateCategory = useCallback(
+    async (id, patch) => {
+      await serverCall(`/categories/${id}`, { method: 'PATCH', json: patch });
+      await reloadLocal();
+    },
+    [serverCall, reloadLocal]
+  );
 
   const [view, setView] = useState('library'); // library | recent | favorites | admin
   const [showLogin, setShowLogin] = useState(false);
@@ -353,7 +429,13 @@ export function AppProvider({ children }) {
   const isAdmin = session?.account?.role === 'admin';
   const showLoginPrompt = useCallback(() => setShowLogin(true), []);
   const hideLoginPrompt = useCallback(() => setShowLogin(false), []);
-  const [filters, setFilters] = useState({ type: 'shared', categoryId: null, tag: null, query: '', status: null });
+  const [filters, setFilters] = useState({
+    type: 'shared',
+    categoryId: null,
+    tag: null,
+    query: '',
+    status: null,
+  });
 
   const visible = useMemo(() => {
     if (view === 'recent') return recent;
@@ -361,26 +443,63 @@ export function AppProvider({ children }) {
     return filterComments(comments, filters);
   }, [view, recent, comments, filters, favorites]);
 
-  const tagCloud = useMemo(() => allTags(filterComments(comments, { type: filters.type })), [comments, filters.type]);
+  const tagCloud = useMemo(
+    () => allTags(filterComments(comments, { type: filters.type })),
+    [comments, filters.type]
+  );
 
   const counts = useMemo(() => {
     const shared = comments.filter((c) => c.type === 'shared');
     return {
       shared: shared.length,
       personal: comments.filter((c) => c.type === 'personal').length,
-      pending: comments.filter((c) => c.type === 'shared' && c.status === 'pending_approval').length,
+      pending: comments.filter((c) => c.type === 'shared' && c.status === 'pending_approval')
+        .length,
       approved: shared.filter((c) => c.status === 'approved').length,
     };
   }, [comments]);
 
   const value = {
-    session, booted, login, loginCenter, signup, logout, neonEnabled: isNeonAuth,
-    isPublic, isAdmin, showLogin, showLoginPrompt, hideLoginPrompt,
-    comments, categories, recent, favorites, visible, tagCloud, counts, toasts,
-    filters, setFilters, view, setView,
-    saveComment, deleteComment, copyAndTrack, doSyncNow, reloadLocal, loadPublic,
-    approveShared, rejectShared, submitToShared, addCategory, updateCategory,
-    syncState, toast, theme, toggleTheme, toggleFavorite,
+    session,
+    booted,
+    login,
+    loginCenter,
+    signup,
+    logout,
+    neonEnabled: isNeonAuth,
+    isPublic,
+    isAdmin,
+    showLogin,
+    showLoginPrompt,
+    hideLoginPrompt,
+    comments,
+    categories,
+    recent,
+    favorites,
+    visible,
+    tagCloud,
+    counts,
+    toasts,
+    filters,
+    setFilters,
+    view,
+    setView,
+    saveComment,
+    deleteComment,
+    copyAndTrack,
+    doSyncNow,
+    reloadLocal,
+    loadPublic,
+    approveShared,
+    rejectShared,
+    submitToShared,
+    addCategory,
+    updateCategory,
+    syncState,
+    toast,
+    theme,
+    toggleTheme,
+    toggleFavorite,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

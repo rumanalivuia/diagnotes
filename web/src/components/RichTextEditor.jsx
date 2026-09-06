@@ -57,7 +57,10 @@ function runsFromNode(el) {
           p = p.parentElement;
         }
         runs.push(r);
-      } else if (child.nodeType === Node.ELEMENT_NODE && !['UL', 'OL', 'LI'].includes(child.tagName)) {
+      } else if (
+        child.nodeType === Node.ELEMENT_NODE &&
+        !['UL', 'OL', 'LI'].includes(child.tagName)
+      ) {
         walk(child);
       }
     }
@@ -73,7 +76,10 @@ export default function RichTextEditor({ value = [], onChange, placeholder }) {
 
   // Populate the editor when `value` changes from outside (load comment).
   useEffect(() => {
-    if (editingRef.current) { editingRef.current = false; return; }
+    if (editingRef.current) {
+      editingRef.current = false;
+      return;
+    }
     const el = elRef.current;
     if (!el) return;
     if (JSON.stringify(blocksFromHtml(el)) === JSON.stringify(value)) return;
@@ -115,15 +121,43 @@ export default function RichTextEditor({ value = [], onChange, placeholder }) {
   return (
     <div className="editor-shell">
       <div className="editor-toolbar" role="toolbar" aria-label="Formatting">
-        <button type="button" className={`tb-btn ${activeMarks.b ? 'on' : ''}`} title="Bold (Ctrl+B)"
-          onMouseDown={(e) => e.preventDefault()} onClick={() => exec('bold', 'b')}><b>B</b></button>
-        <button type="button" className={`tb-btn ${activeMarks.i ? 'on' : ''}`} title="Italic (Ctrl+I)"
-          onMouseDown={(e) => e.preventDefault()} onClick={() => exec('italic', 'i')}><i>I</i></button>
-        <button type="button" className={`tb-btn ${activeMarks.u ? 'on' : ''}`} title="Underline (Ctrl+U)"
-          onMouseDown={(e) => e.preventDefault()} onClick={() => exec('underline', 'u')}><u>U</u></button>
+        <button
+          type="button"
+          className={`tb-btn ${activeMarks.b ? 'on' : ''}`}
+          title="Bold (Ctrl+B)"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('bold', 'b')}
+        >
+          <b>B</b>
+        </button>
+        <button
+          type="button"
+          className={`tb-btn ${activeMarks.i ? 'on' : ''}`}
+          title="Italic (Ctrl+I)"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('italic', 'i')}
+        >
+          <i>I</i>
+        </button>
+        <button
+          type="button"
+          className={`tb-btn ${activeMarks.u ? 'on' : ''}`}
+          title="Underline (Ctrl+U)"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('underline', 'u')}
+        >
+          <u>U</u>
+        </button>
         <span className="tb-sep" />
-        <button type="button" className="tb-btn" title="Bullet list"
-          onMouseDown={(e) => e.preventDefault()} onClick={() => exec('insertUnorderedList', null)}>•≡</button>
+        <button
+          type="button"
+          className="tb-btn"
+          title="Bullet list"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('insertUnorderedList', null)}
+        >
+          •≡
+        </button>
       </div>
       <div
         ref={elRef}
@@ -135,7 +169,10 @@ export default function RichTextEditor({ value = [], onChange, placeholder }) {
         onInput={commit}
         onKeyUp={() => requestAnimationFrame(updateMarks)}
         onMouseUp={() => requestAnimationFrame(updateMarks)}
-        onBlur={() => { commit(); updateMarks(); }}
+        onBlur={() => {
+          commit();
+          updateMarks();
+        }}
         suppressContentEditableWarning
       />
     </div>

@@ -34,11 +34,23 @@ function fakeStmts() {
   const rows = new Map(); // id -> row
   return {
     rows,
-    getAccountByEmail: { get: async (email) => [...rows.values()].find((r) => r.email === email) || null },
-    getAccountByNeonSub: { get: async (sub) => [...rows.values()].find((r) => r.neon_sub === sub) || null },
+    getAccountByEmail: {
+      get: async (email) => [...rows.values()].find((r) => r.email === email) || null,
+    },
+    getAccountByNeonSub: {
+      get: async (sub) => [...rows.values()].find((r) => r.neon_sub === sub) || null,
+    },
     insertNeonAccount: {
       run: async (id, email, hash, salt, sub, role, at) => {
-        rows.set(id, { id, email, password_hash: hash, salt, neon_sub: sub, role: role || 'user', created_at: at });
+        rows.set(id, {
+          id,
+          email,
+          password_hash: hash,
+          salt,
+          neon_sub: sub,
+          role: role || 'user',
+          created_at: at,
+        });
         return { changes: 1 };
       },
     },
@@ -48,15 +60,30 @@ function fakeStmts() {
 describe('findOrProvisionNeonAccount', () => {
   it('binds a known email without provisioning', async () => {
     const stmts = fakeStmts();
-    stmts.rows.set('acct1', { id: 'acct1', email: 'a@x.com', password_hash: 'h', salt: 's', neon_sub: null, role: 'admin' });
-    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-1', exp: 1, payload: { email: 'a@x.com' } }, db);
+    stmts.rows.set('acct1', {
+      id: 'acct1',
+      email: 'a@x.com',
+      password_hash: 'h',
+      salt: 's',
+      neon_sub: null,
+      role: 'admin',
+    });
+    const s = await findOrProvisionNeonAccount(
+      stmts,
+      { sub: 'neon-1', exp: 1, payload: { email: 'a@x.com' } },
+      db
+    );
     assert.equal(s.sub, 'acct1');
     assert.equal(stmts.rows.size, 1);
   });
 
   it('provisions an unknown email and rebinds via neon_sub', async () => {
     const stmts = fakeStmts();
-    const s1 = await findOrProvisionNeonAccount(stmts, { sub: 'neon-9', exp: 1, payload: { email: 'new@x.com' } }, db);
+    const s1 = await findOrProvisionNeonAccount(
+      stmts,
+      { sub: 'neon-9', exp: 1, payload: { email: 'new@x.com' } },
+      db
+    );
     assert.ok(s1.sub);
     assert.equal(stmts.rows.size, 1);
     const row = stmts.rows.get(s1.sub);
@@ -71,7 +98,11 @@ describe('findOrProvisionNeonAccount', () => {
 
   it('trims whitespace from email during provisioning', async () => {
     const stmts = fakeStmts();
-    const s = await findOrProvisionNeonAccount(stmts, { sub: 'neon-trim', exp: 1, payload: { email: '  spaced@x.com  ' } }, db);
+    const s = await findOrProvisionNeonAccount(
+      stmts,
+      { sub: 'neon-trim', exp: 1, payload: { email: '  spaced@x.com  ' } },
+      db
+    );
     assert.ok(s.sub);
     const row = stmts.rows.get(s.sub);
     assert.equal(row.email, 'spaced@x.com');
@@ -84,5 +115,7 @@ describe('findOrProvisionNeonAccount', () => {
 });
 
 process.on('exit', () => {
-  try { rmSync(dataDir, { recursive: true, force: true }); } catch {}
+  try {
+    rmSync(dataDir, { recursive: true, force: true });
+  } catch {}
 });

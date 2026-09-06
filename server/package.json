@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "jose": "^6.2.10",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "dotenv": "^17.4.2"

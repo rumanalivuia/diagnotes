@@ -34,17 +34,26 @@ before(async () => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      return res.end();
+    }
     const handled = await api(req, res);
-    if (!handled && !res.writableEnded) { res.writeHead(404); res.end('not found'); }
+    if (!handled && !res.writableEnded) {
+      res.writeHead(404);
+      res.end('not found');
+    }
   });
   await new Promise((r) => server.listen(0, r));
+  // @ts-ignore — AddressInfo union includes string; we only listen on TCP
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(() => {
   server?.close();
-  try { rmSync(dataDir, { recursive: true, force: true }); } catch {}
+  try {
+    rmSync(dataDir, { recursive: true, force: true });
+  } catch {}
 });
 
 describe('auth', () => {
@@ -93,7 +102,8 @@ describe('categories', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'devpassword',
+      email: 'diagnotes@center.local',
+      password: 'devpassword',
     });
     token = body.token;
   });
@@ -117,7 +127,8 @@ describe('comments', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'devpassword',
+      email: 'diagnotes@center.local',
+      password: 'devpassword',
     });
     token = body.token;
   });
@@ -130,12 +141,17 @@ describe('comments', () => {
   });
 
   it('creates a personal snippet', async () => {
-    const r = await req('POST', '/api/comments', {
-      type: 'personal',
-      title: 'My quick note',
-      body: [{ t: 'p', r: [{ x: 'Check sample integrity' }] }],
-      tags: ['quick'],
-    }, token);
+    const r = await req(
+      'POST',
+      '/api/comments',
+      {
+        type: 'personal',
+        title: 'My quick note',
+        body: [{ t: 'p', r: [{ x: 'Check sample integrity' }] }],
+        tags: ['quick'],
+      },
+      token
+    );
     assert.equal(r.status, 201);
     assert.ok(r.body.id);
   });
@@ -151,7 +167,12 @@ describe('comments', () => {
     const cats = await req('GET', '/api/categories', null, token);
     const biochem = cats.body.categories.find((c) => c.name === 'Biochemistry');
     assert.ok(biochem, 'Biochemistry category should exist');
-    const r = await req('GET', `/api/comments?type=shared&category_id=${biochem.id}&tag=hemolysis`, null, token);
+    const r = await req(
+      'GET',
+      `/api/comments?type=shared&category_id=${biochem.id}&tag=hemolysis`,
+      null,
+      token
+    );
     assert.equal(r.status, 200);
     assert.ok(r.body.comments.length >= 1);
     assert.ok(r.body.comments[0].tags.includes('hemolysis'));
@@ -167,10 +188,16 @@ describe('comments', () => {
   });
 
   it('submits personal to shared library', async () => {
-    const create = await req('POST', '/api/comments', {
-      type: 'personal', title: 'Submit me',
-      body: [{ t: 'p', r: [{ x: 'test' }] }],
-    }, token);
+    const create = await req(
+      'POST',
+      '/api/comments',
+      {
+        type: 'personal',
+        title: 'Submit me',
+        body: [{ t: 'p', r: [{ x: 'test' }] }],
+      },
+      token
+    );
     const r = await req('POST', `/api/comments/${create.body.id}/submit`, null, token);
     assert.equal(r.status, 200);
     const check = await req('GET', `/api/comments/${create.body.id}`, null, token);
@@ -179,10 +206,16 @@ describe('comments', () => {
   });
 
   it('admin approves a pending comment', async () => {
-    const create = await req('POST', '/api/comments', {
-      type: 'personal', title: 'Approve me',
-      body: [{ t: 'p', r: [{ x: 'test' }] }],
-    }, token);
+    const create = await req(
+      'POST',
+      '/api/comments',
+      {
+        type: 'personal',
+        title: 'Approve me',
+        body: [{ t: 'p', r: [{ x: 'test' }] }],
+      },
+      token
+    );
     await req('POST', `/api/comments/${create.body.id}/submit`, null, token);
     const r = await req('POST', `/api/admin/comments/${create.body.id}/approve`, null, token);
     assert.equal(r.status, 200);
@@ -191,12 +224,23 @@ describe('comments', () => {
   });
 
   it('admin rejects with reason', async () => {
-    const create = await req('POST', '/api/comments', {
-      type: 'personal', title: 'Reject me',
-      body: [{ t: 'p', r: [{ x: 'test' }] }],
-    }, token);
+    const create = await req(
+      'POST',
+      '/api/comments',
+      {
+        type: 'personal',
+        title: 'Reject me',
+        body: [{ t: 'p', r: [{ x: 'test' }] }],
+      },
+      token
+    );
     await req('POST', `/api/comments/${create.body.id}/submit`, null, token);
-    const r = await req('POST', `/api/admin/comments/${create.body.id}/reject`, { reason: 'Duplicate' }, token);
+    const r = await req(
+      'POST',
+      `/api/admin/comments/${create.body.id}/reject`,
+      { reason: 'Duplicate' },
+      token
+    );
     assert.equal(r.status, 200);
     const check = await req('GET', `/api/comments/${create.body.id}`, null, token);
     assert.equal(check.body.comment.status, 'rejected');
@@ -204,10 +248,16 @@ describe('comments', () => {
   });
 
   it('soft-deletes a comment', async () => {
-    const create = await req('POST', '/api/comments', {
-      type: 'personal', title: 'Delete me',
-      body: [{ t: 'p', r: [{ x: 'test' }] }],
-    }, token);
+    const create = await req(
+      'POST',
+      '/api/comments',
+      {
+        type: 'personal',
+        title: 'Delete me',
+        body: [{ t: 'p', r: [{ x: 'test' }] }],
+      },
+      token
+    );
     const r = await req('DELETE', `/api/comments/${create.body.id}`, null, token);
     assert.equal(r.status, 200);
     const list = await req('GET', '/api/comments', null, token);
@@ -219,7 +269,8 @@ describe('sync', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'devpassword',
+      email: 'diagnotes@center.local',
+      password: 'devpassword',
     });
     token = body.token;
   });
@@ -233,18 +284,25 @@ describe('sync', () => {
   });
 
   it('pushes offline-created comments', async () => {
-    const r = await req('POST', '/api/sync', {
-      comments: [{
-        id: 'offline-created-001',
-        type: 'personal',
-        title: 'Offline note',
-        body: [{ t: 'p', r: [{ x: 'created offline' }] }],
-        tags: ['offline'],
-        status: 'draft',
-        created_at: Date.now() - 1000,
-        updated_at: Date.now() - 1000,
-      }],
-    }, token);
+    const r = await req(
+      'POST',
+      '/api/sync',
+      {
+        comments: [
+          {
+            id: 'offline-created-001',
+            type: 'personal',
+            title: 'Offline note',
+            body: [{ t: 'p', r: [{ x: 'created offline' }] }],
+            tags: ['offline'],
+            status: 'draft',
+            created_at: Date.now() - 1000,
+            updated_at: Date.now() - 1000,
+          },
+        ],
+      },
+      token
+    );
     assert.equal(r.status, 200);
     assert.equal(r.body.created, 1);
     const check = await req('GET', '/api/comments/offline-created-001', null, token);
@@ -257,7 +315,8 @@ describe('admin stats', () => {
   let token;
   before(async () => {
     const { body } = await req('POST', '/api/auth/login', {
-      email: 'diagnotes@center.local', password: 'devpassword',
+      email: 'diagnotes@center.local',
+      password: 'devpassword',
     });
     token = body.token;
   });

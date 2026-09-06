@@ -17,7 +17,16 @@ export const DEMO_COMMENTS = [
     type: 'shared',
     title: 'Hemolyzed sample — results may be affected',
     body: [
-      { t: 'p', r: [{ x: 'Sample was hemolyzed on receipt. Potassium, LDH, and AST results may be affected; interpret with caution. Hemolysis index: ' }, { x: 'moderate', b: 1 }, { x: '. Please recollect if clinically indicated.' }] },
+      {
+        t: 'p',
+        r: [
+          {
+            x: 'Sample was hemolyzed on receipt. Potassium, LDH, and AST results may be affected; interpret with caution. Hemolysis index: ',
+          },
+          { x: 'moderate', b: 1 },
+          { x: '. Please recollect if clinically indicated.' },
+        ],
+      },
     ],
     status: 'approved',
     category: 'Biochemistry',
@@ -38,7 +47,14 @@ export const DEMO_COMMENTS = [
     type: 'shared',
     title: 'Blood culture — no growth at 48 hours',
     body: [
-      { t: 'p', r: [{ x: 'No growth after 48 hours of incubation. Final report at 5 days unless clinically indicated otherwise.' }] },
+      {
+        t: 'p',
+        r: [
+          {
+            x: 'No growth after 48 hours of incubation. Final report at 5 days unless clinically indicated otherwise.',
+          },
+        ],
+      },
     ],
     status: 'approved',
     category: 'Microbiology',
@@ -48,7 +64,14 @@ export const DEMO_COMMENTS = [
     type: 'shared',
     title: 'Requesting add-on testing',
     body: [
-      { t: 'p', r: [{ x: 'Please add the following test(s) to the original specimen: ' }, { x: 'C-reactive protein', i: 1 }, { x: '. Specimen adequacy was verified prior to add-on.' }] },
+      {
+        t: 'p',
+        r: [
+          { x: 'Please add the following test(s) to the original specimen: ' },
+          { x: 'C-reactive protein', i: 1 },
+          { x: '. Specimen adequacy was verified prior to add-on.' },
+        ],
+      },
     ],
     status: 'approved',
     category: 'Biochemistry',
@@ -58,11 +81,22 @@ export const DEMO_COMMENTS = [
     type: 'shared',
     title: 'Needle core biopsy — fragments present',
     body: [
-      { t: 'ul', items: [
-        { r: [{ x: 'Needle core biopsy specimen received.' }] },
-        { r: [{ x: 'Sections show ' }, { x: 'three cores', b: 1 }, { x: ', total length ' }, { x: '1.2 cm', b: 1 }, { x: '.' }] },
-        { r: [{ x: 'Diagnostic material present; see comment.' }] },
-      ] },
+      {
+        t: 'ul',
+        items: [
+          { r: [{ x: 'Needle core biopsy specimen received.' }] },
+          {
+            r: [
+              { x: 'Sections show ' },
+              { x: 'three cores', b: 1 },
+              { x: ', total length ' },
+              { x: '1.2 cm', b: 1 },
+              { x: '.' },
+            ],
+          },
+          { r: [{ x: 'Diagnostic material present; see comment.' }] },
+        ],
+      },
     ],
     status: 'approved',
     category: 'Histopathology',
@@ -70,41 +104,51 @@ export const DEMO_COMMENTS = [
   },
 ];
 
+function loadEnvFile(p) {
+  try {
+    if (!existsSync(p)) return false;
+    const content = readFileSync(p, 'utf8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq < 0) continue;
+      let key = trimmed.slice(0, eq).trim();
+      let val = trimmed.slice(eq + 1).trim();
+      if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+      if (!process.env[key]) process.env[key] = val;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function loadLocalEnvIfNeeded() {
   if (process.env.DATABASE_URL) return;
-  const altPath = 'E:\\HermesWorkspace\\projects\\diagnotes\\.env.local';
-  try {
-    if (existsSync(altPath)) {
-      const content = readFileSync(altPath, 'utf8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eq = trimmed.indexOf('=');
-        if (eq < 0) continue;
-        let key = trimmed.slice(0, eq).trim();
-        let val = trimmed.slice(eq + 1).trim();
-        if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-        if (!process.env[key]) process.env[key] = val;
-      }
-    }
-  } catch {}
-  // also try cwd .env.local
-  try {
-    const cwdEnv = join(process.cwd(), '.env.local');
-    if (cwdEnv !== altPath && existsSync(cwdEnv)) {
-      const content = readFileSync(cwdEnv, 'utf8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eq = trimmed.indexOf('=');
-        if (eq < 0) continue;
-        let key = trimmed.slice(0, eq).trim();
-        let val = trimmed.slice(eq + 1).trim();
-        if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-        if (!process.env[key]) process.env[key] = val;
-      }
-    }
-  } catch {}
+  // Portably resolve .env.local from project root, server dir, and cwd
+  // (no hard-coded absolute Windows paths — breaks on other machines/CI)
+  const candidates = [
+    join(
+      dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')),
+      '..',
+      '..',
+      '.env.local'
+    ),
+    join(process.cwd(), '.env.local'),
+    join(
+      dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')),
+      '..',
+      '.env.local'
+    ),
+  ];
+  const seen = new Set();
+  for (const p of candidates) {
+    const norm = p.replace(/\\/g, '/');
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+    loadEnvFile(p);
+  }
 }
 loadLocalEnvIfNeeded();
 
@@ -130,10 +174,16 @@ async function openPgDb() {
   const pool = new Pool({ connectionString, ssl: true });
   await pool.query('SELECT 1');
   await migratePg(pool);
-  if (!process.env.DIAGNOTES_EMAIL) throw new Error('[diagnotes] DIAGNOTES_EMAIL environment variable is required for Postgres/production mode');
-  if (!process.env.DIAGNOTES_PASSWORD) throw new Error('[diagnotes] DIAGNOTES_PASSWORD environment variable is required for Postgres/production mode');
+  if (!process.env.DIAGNOTES_EMAIL)
+    throw new Error(
+      '[diagnotes] DIAGNOTES_EMAIL environment variable is required for Postgres/production mode'
+    );
+  if (!process.env.DIAGNOTES_PASSWORD)
+    throw new Error(
+      '[diagnotes] DIAGNOTES_PASSWORD environment variable is required for Postgres/production mode'
+    );
   const env = {
-    email: (process.env.DIAGNOTES_EMAIL).trim(),
+    email: process.env.DIAGNOTES_EMAIL.trim(),
     password: process.env.DIAGNOTES_PASSWORD,
     seedDemo: process.env.DIAGNOTES_SEED_DEMO !== '0',
   };
@@ -161,7 +211,9 @@ function openSqliteDb(dataDir) {
     seedDemo: process.env.DIAGNOTES_SEED_DEMO !== '0',
   };
   if (!process.env.DIAGNOTES_EMAIL || !process.env.DIAGNOTES_PASSWORD) {
-    console.warn('[diagnotes] WARNING: Using default credentials for local dev. Set DIAGNOTES_EMAIL and DIAGNOTES_PASSWORD for production.');
+    console.warn(
+      '[diagnotes] WARNING: Using default credentials for local dev. Set DIAGNOTES_EMAIL and DIAGNOTES_PASSWORD for production.'
+    );
   }
   seedAccountsSqlite(db, env.email, env.password);
   if (fresh && env.seedDemo) seedDemoDataSqlite(db);
@@ -183,18 +235,20 @@ function wrapSqliteDb(sqliteDb) {
         runAsync: async (...params) => stmt.run(...params),
       };
     },
-    exec(sql) { return sqliteDb.exec(sql); },
+    exec(sql) {
+      return sqliteDb.exec(sql);
+    },
     async query(sql, params) {
       const hasSelect = /^\s*SELECT/i.test(sql);
       const stmt = sqliteDb.prepare(sql);
       if (hasSelect) {
-        const rows = stmt.all(...(params||[]));
+        const rows = stmt.all(...(params || []));
         return { rows };
       } else {
-        stmt.run(...(params||[]));
+        stmt.run(...(params || []));
         return { rows: [] };
       }
-    }
+    },
   };
 }
 
@@ -231,8 +285,12 @@ function wrapPgPool(pool) {
         },
       };
     },
-    exec: async (sql) => { await pool.query(sql); },
-    async query(sql, params) { return pool.query(sql, params); }
+    exec: async (sql) => {
+      await pool.query(sql);
+    },
+    async query(sql, params) {
+      return pool.query(sql, params);
+    },
   };
 }
 
@@ -271,10 +329,43 @@ async function migratePg(pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_comments_updated ON comments (updated_at);
     CREATE INDEX IF NOT EXISTS idx_categories_updated ON categories (updated_at);
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id         TEXT PRIMARY KEY,
+      actor_id   TEXT NOT NULL,
+      action     TEXT NOT NULL CHECK (action IN ('approve','reject','submit','create','update')),
+      target_id  TEXT NOT NULL,
+      detail     TEXT,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log (created_at);
   `);
   // Upgrade for pre-existing pg DBs (fresh tables above lack neon_sub/role)
   await pool.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS neon_sub TEXT UNIQUE`);
-  await pool.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`);
+  await pool.query(
+    `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`
+  );
+  // Backfill audit_log + indexes for older prod DBs
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id         TEXT PRIMARY KEY,
+      actor_id   TEXT NOT NULL,
+      action     TEXT NOT NULL,
+      target_id  TEXT NOT NULL,
+      detail     TEXT,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log (created_at);
+  `);
+  // FTS: pg_trgm for title/body_text LIKE acceleration; safe if extension missing (Neon allows it)
+  try {
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_comments_title_trgm ON comments USING gin (title gin_trgm_ops)`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_comments_body_trgm ON comments USING gin (body_text gin_trgm_ops)`
+    );
+  } catch {}
 }
 
 function migrateSqlite(db) {
@@ -314,12 +405,41 @@ function migrateSqlite(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_comments_updated ON comments (updated_at);
     CREATE INDEX IF NOT EXISTS idx_categories_updated ON categories (updated_at);
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id         TEXT PRIMARY KEY,
+      actor_id   TEXT NOT NULL,
+      action     TEXT NOT NULL,
+      target_id  TEXT NOT NULL,
+      detail     TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log (created_at);
   `);
   // Idempotent upgrade for pre-existing sqlite DBs (no IF NOT EXISTS for ADD COLUMN)
-  const cols = db.prepare(`PRAGMA table_info(accounts)`).all().map((c) => c.name);
+  const cols = db
+    .prepare(`PRAGMA table_info(accounts)`)
+    .all()
+    .map((c) => c.name);
   if (!cols.includes('neon_sub')) db.exec(`ALTER TABLE accounts ADD COLUMN neon_sub TEXT`);
-  if (!cols.includes('role')) db.exec(`ALTER TABLE accounts ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
-  try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_neon_sub ON accounts (neon_sub)`); } catch {}
+  if (!cols.includes('role'))
+    db.exec(`ALTER TABLE accounts ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_neon_sub ON accounts (neon_sub)`);
+  } catch {}
+  // Backfill audit_log for older sqlite DBs
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id         TEXT PRIMARY KEY,
+        actor_id   TEXT NOT NULL,
+        action     TEXT NOT NULL,
+        target_id  TEXT NOT NULL,
+        detail     TEXT,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log (created_at);
+    `);
+  } catch {}
 }
 
 async function seedAccountsPg(pool, email, password) {
@@ -364,10 +484,25 @@ async function seedDemoDataPg(pool) {
         (id, type, title, body, body_text, status, category_id, tags, rejection_reason,
          copy_count, deleted, archived, created_at, updated_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,0,$11,$12) ON CONFLICT (id) DO NOTHING`,
-      [uid(), c.type, c.title, body, textOf(c.body), c.status, cat.get(c.category) ?? null, JSON.stringify(c.tags), null, 0, at, at]
+      [
+        uid(),
+        c.type,
+        c.title,
+        body,
+        textOf(c.body),
+        c.status,
+        cat.get(c.category) ?? null,
+        JSON.stringify(c.tags),
+        null,
+        0,
+        at,
+        at,
+      ]
     );
   }
-  console.log(`[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length + SEED_NOTES.length} approved shared comments (pg)`);
+  console.log(
+    `[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length + SEED_NOTES.length} approved shared comments (pg)`
+  );
 }
 
 function seedDemoDataSqlite(db) {
@@ -378,7 +513,10 @@ function seedDemoDataSqlite(db) {
     ).run(uid(), name, at, at);
   }
   const cat = new Map(
-    db.prepare('SELECT id, name FROM categories').all().map((c) => [c.name, c.id])
+    db
+      .prepare('SELECT id, name FROM categories')
+      .all()
+      .map((c) => [c.name, c.id])
   );
   const insertComment = db.prepare(
     `INSERT INTO comments
@@ -403,7 +541,9 @@ function seedDemoDataSqlite(db) {
       at
     );
   }
-  console.log(`[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length + SEED_NOTES.length} approved shared comments (sqlite)`);
+  console.log(
+    `[diagnotes] seeded demo categories + ${DEMO_COMMENTS.length + SEED_NOTES.length} approved shared comments (sqlite)`
+  );
 }
 
 /** Current time in epoch ms (all timestamps are ms). */
@@ -442,12 +582,22 @@ export function verifyPassword(password, hashHex, saltHex) {
 }
 
 export function readOrCreateSecret(dataDir) {
-  if (process.env.DIAGNOTES_SECRET) return process.env.DIAGNOTES_SECRET;
+  if (process.env.DIAGNOTES_SECRET) {
+    const s = process.env.DIAGNOTES_SECRET;
+    if (process.env.DATABASE_URL && s.trim().length < 32) {
+      throw new Error(
+        '[diagnotes] DIAGNOTES_SECRET must be at least 32 characters in production (DATABASE_URL set)'
+      );
+    }
+    return s;
+  }
   if (dataDir) {
     const p = join(dataDir, '.secret');
     if (existsSync(p)) return readFileSync(p, 'utf8').trim();
     const s = randomBytes(32).toString('hex');
-    try { writeFileSync(p, s, { mode: 0o600 }); } catch {}
+    try {
+      writeFileSync(p, s, { mode: 0o600 });
+    } catch {}
     return s;
   }
   return randomBytes(32).toString('hex');
@@ -465,4 +615,3 @@ export async function setAccountRole(db, id, role) {
 }
 
 export { dirname };
-

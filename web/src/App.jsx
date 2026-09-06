@@ -1,19 +1,21 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useDiag } from './AppContext.jsx';
 import Rail from './components/Rail.jsx';
 import TopBar from './components/TopBar.jsx';
 import LibraryView from './components/LibraryView.jsx';
-import AdminView from './components/AdminView.jsx';
-import CommentEditor from './components/CommentEditor.jsx';
 import CommentDetail from './components/CommentDetail.jsx';
 import Login from './components/Login.jsx';
 import Toasts from './components/Toasts.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+const AdminView = lazy(() => import('./components/AdminView.jsx'));
+const CommentEditor = lazy(() => import('./components/CommentEditor.jsx'));
 
 /* ── Mobile FAB: opens new-comment modal when the rail is hidden ── */
 function MobileFab({ onClick }) {
   return (
-    <button className="fab-btn" onClick={onClick} aria-label="New comment">
-      +
+    <button className="fab-btn" onClick={onClick} aria-label="New comment" title="New comment">
+      <span aria-hidden>+</span>
     </button>
   );
 }
@@ -84,7 +86,9 @@ function Shell() {
           <TopBar onNew={openNew} />
         </div>
         <main className="main">
-          <CommentDetail commentId={detailId} onBack={goBack} />
+          <ErrorBoundary>
+            <CommentDetail commentId={detailId} onBack={goBack} />
+          </ErrorBoundary>
         </main>
         <Toasts />
       </div>
@@ -98,21 +102,41 @@ function Shell() {
         <TopBar onNew={openNew} />
       </div>
       <main className="main">
-        {view === 'library' || view === 'recent' || view === 'favorites' ? (
-          <LibraryView onEdit={openEdit} onNew={openNew} />
-        ) : view === 'admin' ? (
-          <AdminView onEdit={openEdit} />
-        ) : (
-          <div className="empty-state"><h3>Unknown view</h3></div>
-        )}
+        <ErrorBoundary>
+          {view === 'library' || view === 'recent' || view === 'favorites' ? (
+            <LibraryView onEdit={openEdit} onNew={openNew} />
+          ) : view === 'admin' ? (
+            <Suspense
+              fallback={
+                <div className="empty-state">
+                  <div className="skeleton" style={{ width: 180, height: 22 }} />
+                </div>
+              }
+            >
+              <AdminView onEdit={openEdit} />
+            </Suspense>
+          ) : (
+            <div className="empty-state">
+              <h3>Unknown view</h3>
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
       <MobileFab onClick={openNew} />
       {modalOpen && editing && (
-        <CommentEditor
-          initial={editing && !editing.new ? editing : null}
-          onClose={closeModal}
-          key={editing?.id || 'new'}
-        />
+        <Suspense
+          fallback={
+            <div className="modal-backdrop">
+              <div className="skeleton" style={{ width: 400, height: 300 }} />
+            </div>
+          }
+        >
+          <CommentEditor
+            initial={editing && !editing.new ? editing : null}
+            onClose={closeModal}
+            key={editing?.id || 'new'}
+          />
+        </Suspense>
       )}
       {showLogin && <Login onClose={hideLoginPrompt} />}
       <Toasts />
@@ -132,7 +156,10 @@ function SkeletonLoader() {
       <div className="app-header">
         <div className="topbar">
           <div className="skeleton" style={{ width: 80, height: 36, borderRadius: 6 }} />
-          <div className="skeleton" style={{ flex: 1, maxWidth: 620, height: 38, borderRadius: 999 }} />
+          <div
+            className="skeleton"
+            style={{ flex: 1, maxWidth: 620, height: 38, borderRadius: 999 }}
+          />
         </div>
       </div>
       <main className="main">
@@ -141,9 +168,18 @@ function SkeletonLoader() {
         </div>
         {[1, 2, 3].map((i) => (
           <div key={i} className="card" style={{ padding: 18 }}>
-            <div className="skeleton" style={{ width: '60%', height: 18, borderRadius: 4, marginBottom: 12 }} />
-            <div className="skeleton" style={{ width: '100%', height: 14, borderRadius: 4, marginBottom: 6 }} />
-            <div className="skeleton" style={{ width: '85%', height: 14, borderRadius: 4, marginBottom: 12 }} />
+            <div
+              className="skeleton"
+              style={{ width: '60%', height: 18, borderRadius: 4, marginBottom: 12 }}
+            />
+            <div
+              className="skeleton"
+              style={{ width: '100%', height: 14, borderRadius: 4, marginBottom: 6 }}
+            />
+            <div
+              className="skeleton"
+              style={{ width: '85%', height: 14, borderRadius: 4, marginBottom: 12 }}
+            />
             <div style={{ display: 'flex', gap: 8 }}>
               <div className="skeleton" style={{ width: 60, height: 20, borderRadius: 999 }} />
               <div className="skeleton" style={{ width: 48, height: 20, borderRadius: 999 }} />

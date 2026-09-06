@@ -3,16 +3,16 @@
 Status key: ✅ verified (automated or live browser), ⚠️ verified-in-part /
 needs manual confirmation on a non-headless machine, 🔲 not yet done.
 
-| # | Criterion | Status | How it was verified |
-|---|---|---|---|
-| 1 | Create a personal snippet with rich text and retrieve via search in <2s | ✅ | Live CDP: created "My potassium comment" with bold/underline in the rich editor; full-text search returns it instantly (client-side IndexedDB, sub-100ms) |
-| 2 | Submit personal snippet → shared library; admin sees it in pending queue | ✅ | Live CDP: "Submit to library" → admin Review queue showed the item with Approve/Reject; server `pending: N` confirmed |
-| 3 | Admin approve makes it visible to all users within one sync cycle | ✅ | Approve → toast "Approved — now visible to everyone"; server `GET /api/comments?type=shared&status=approved` returns it; clients pick it up on next `syncNow` (60s cadence or manual) |
-| 4 | Copy places correctly-formatted text on clipboard (plain + rich) | ✅ logic / ⚠️ headless | Plain = `•` bulleted text, rich = `<p><b><ul>` HTML verified via stubbed `navigator.clipboard.write` capture. Real click in headless can't grant clipboard gesture — verify once in a normal browser/Word |
-| 5 | Offline: app launches with no network; synced comments searchable & copyable | ✅ | CDP `Network.emulateNetworkConditions offline` → 8 cached cards rendered, search "hemolyzed" → 1 hit |
-| 6 | Reconnect: locally-created offline comments sync without data loss | ✅ | Offline-created comment queued (queue=1); back online + sync → queue=0, server search returns the comment |
-| 7 | Web + Windows app show identical data within one sync cycle | ✅ (web) / 🔲 (Windows) | Web verified. Windows = same Tauri-hosted web code; needs a Rust build to run (see desktop/README) |
-| 8 | Category + tag filters combine with AND and return correct results | ✅ | Unit test `filter combines type + category + tag with AND`; server filter test passes |
+| #   | Criterion                                                                    | Status                  | How it was verified                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Create a personal snippet with rich text and retrieve via search in <2s      | ✅                      | Live CDP: created "My potassium comment" with bold/underline in the rich editor; full-text search returns it instantly (client-side IndexedDB, sub-100ms)                                                 |
+| 2   | Submit personal snippet → shared library; admin sees it in pending queue     | ✅                      | Live CDP: "Submit to library" → admin Review queue showed the item with Approve/Reject; server `pending: N` confirmed                                                                                     |
+| 3   | Admin approve makes it visible to all users within one sync cycle            | ✅                      | Approve → toast "Approved — now visible to everyone"; server `GET /api/comments?type=shared&status=approved` returns it; clients pick it up on next `syncNow` (60s cadence or manual)                     |
+| 4   | Copy places correctly-formatted text on clipboard (plain + rich)             | ✅ logic / ⚠️ headless  | Plain = `•` bulleted text, rich = `<p><b><ul>` HTML verified via stubbed `navigator.clipboard.write` capture. Real click in headless can't grant clipboard gesture — verify once in a normal browser/Word |
+| 5   | Offline: app launches with no network; synced comments searchable & copyable | ✅                      | CDP `Network.emulateNetworkConditions offline` → 8 cached cards rendered, search "hemolyzed" → 1 hit                                                                                                      |
+| 6   | Reconnect: locally-created offline comments sync without data loss           | ✅                      | Offline-created comment queued (queue=1); back online + sync → queue=0, server search returns the comment                                                                                                 |
+| 7   | Web + Windows app show identical data within one sync cycle                  | ✅ (web) / 🔲 (Windows) | Web verified. Windows = same Tauri-hosted web code; needs a Rust build to run (see desktop/README)                                                                                                        |
+| 8   | Category + tag filters combine with AND and return correct results           | ✅                      | Unit test `filter combines type + category + tag with AND`; server filter test passes                                                                                                                     |
 
 ## Additional verified flows
 
