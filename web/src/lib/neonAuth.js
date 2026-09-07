@@ -8,7 +8,7 @@ import { store } from './store.js';
  * - VITE_NEON_AUTH_URL set  -> multi-user Neon Auth (sign-up + sign-in).
  *   API calls carry a short-lived JWT from authClient.token() as the Bearer
  *   token; the server verifies it against the JWKS and auto-provisions the
- *   account on first login.
+ *   account on first login. Production uses /neonauth same-origin proxy.
  * - unset                    -> legacy single shared HMAC login (local dev).
  */
 
