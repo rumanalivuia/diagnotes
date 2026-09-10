@@ -9,6 +9,7 @@
     "web"
   ],
   "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names server,web --prefix-colors blue,green \"npm run server\" \"npm run web\"",
     "server": "npm --workspace server run dev",
     "web": "npm --workspace web run dev",
     "test": "npm --workspace server test && npm --workspace web test",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.20.1",
+    "concurrently": "^10.0.5",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^15.15.0",
