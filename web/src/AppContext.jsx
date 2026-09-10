@@ -245,12 +245,16 @@ export function AppProvider({ children }) {
   const login = useCallback(
     async (email, password) => {
       if (isNeonAuth) {
-        const { error } = await authClient.signIn.email({ email, password });
-        if (error) throw new Error(friendlyAuthError(error, 'Sign-in failed'));
+        const result = await authClient.signIn.email({ email, password });
+        if (result?.error) throw new Error(friendlyAuthError(result.error, 'Sign-in failed'));
         const { data } = await authClient.getSession();
-        if (!data?.user) throw new Error('Sign-in failed — no session');
+        if (!data?.user) throw new Error('Sign-in failed — no session was created');
         await getNeonToken(true);
-        await afterAuth({ email: data.user.email, name: data.user.name });
+        await afterAuth({
+          email: data.user.email,
+          name: data.user.name,
+          neon_sub: data.user.id,
+        });
         return;
       }
       const res = await fetch(`${apiBase()}/api/auth/login`, {
@@ -270,16 +274,29 @@ export function AppProvider({ children }) {
   const signup = useCallback(
     async (name, email, password) => {
       if (!isNeonAuth) throw new Error('Sign-up is not enabled on this server');
-      const { error } = await authClient.signUp.email({
+      const result = await authClient.signUp.email({
         name: name || email.split('@')[0],
         email,
         password,
       });
-      if (error) throw new Error(friendlyAuthError(error, 'Sign-up failed'));
-      const { data } = await authClient.getSession();
-      if (!data?.user) throw new Error('Sign-up succeeded — please sign in');
+      if (result?.error) throw new Error(friendlyAuthError(result.error, 'Sign-up failed'));
+      let { data } = await authClient.getSession();
+      if (!data?.user) {
+        const signInResult = await authClient.signIn.email({ email, password });
+        if (signInResult?.error) {
+          throw new Error(
+            'Account created. Please switch to Sign in and enter your password to continue.'
+          );
+        }
+        ({ data } = await authClient.getSession());
+      }
+      if (!data?.user) throw new Error('Account created, but no session was created');
       await getNeonToken(true);
-      await afterAuth({ email: data.user.email, name: data.user.name });
+      await afterAuth({
+        email: data.user.email,
+        name: data.user.name || name || email.split('@')[0],
+        neon_sub: data.user.id,
+      });
     },
     [afterAuth]
   );
@@ -429,6 +446,23 @@ export function AppProvider({ children }) {
   const isAdmin = session?.account?.role === 'admin';
   const showLoginPrompt = useCallback(() => setShowLogin(true), []);
   const hideLoginPrompt = useCallback(() => setShowLogin(false), []);
+  const shareApp = useCallback(async () => {
+    const shareData = {
+      title: 'DiagNotes',
+      text: 'Browse and share diagnostic comments with your team.',
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+      }
+      toast.success(navigator.share ? 'Share dialog opened' : 'App link copied');
+    } catch (error) {
+      if (error?.name !== 'AbortError') toast.error('Unable to share the app link');
+    }
+  }, [toast]);
   const [filters, setFilters] = useState({
     type: 'shared',
     categoryId: null,
@@ -472,6 +506,7 @@ export function AppProvider({ children }) {
     showLogin,
     showLoginPrompt,
     hideLoginPrompt,
+    shareApp,
     comments,
     categories,
     recent,
