@@ -70,6 +70,21 @@ export function prepareCommentStmts(db) {
     searchPublicComments: db.prepare(
       "SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND (title LIKE ? ESCAPE '\\' OR body_text LIKE ? ESCAPE '\\') ORDER BY updated_at DESC LIMIT ?"
     ),
+    filterPublicTypeCatTag: db.prepare(
+      "SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND category_id=? AND tags LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?"
+    ),
+    filterPublicTypeCat: db.prepare(
+      "SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND category_id=? ORDER BY updated_at DESC LIMIT ?"
+    ),
+    filterPublicTypeTag: db.prepare(
+      "SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND tags LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?"
+    ),
+    filterPublicCatTag: db.prepare(
+      "SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND category_id=? AND tags LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?"
+    ),
+    filterPublicTag: db.prepare(
+      "SELECT * FROM comments WHERE deleted=0 AND type='shared' AND status='approved' AND tags LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?"
+    ),
     syncComments: db.prepare(
       'SELECT * FROM comments WHERE deleted=0 AND updated_at > ? ORDER BY updated_at LIMIT ?'
     ),
@@ -88,12 +103,11 @@ export function prepareCommentStmts(db) {
 
 export async function listCommentsFiltered(
   stmts,
-  { session, type, status, category, tag, q, since, limit }
+  { session, type, category, tag, q, since, limit }
 ) {
-  // Public visitors forced to shared/approved even if caller passed something else
+  // Public visitors are restricted by the dedicated approved/shared statements.
   if (!session) {
     type = 'shared';
-    status = 'approved';
   }
   let rows;
   if (since && session) rows = await stmts.syncComments.all(Number(since));

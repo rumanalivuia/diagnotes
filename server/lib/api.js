@@ -138,6 +138,10 @@ export function buildApi(db, secret) {
     const url = new URL(req.url, 'http://localhost');
     const p = url.pathname;
     const method = req.method;
+    const boundedLimit = (value, fallback, maximum) => {
+      const parsed = Number.parseInt(value ?? '', 10);
+      return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
+    };
 
     try {
       // Health
@@ -251,17 +255,15 @@ export function buildApi(db, secret) {
         const session = await optionalAuth(req);
         const sp = url.searchParams;
         let type = sp.get('type');
-        let status = sp.get('status');
         const category = sp.get('category_id');
         const tag = sp.get('tag');
         const q = sp.get('q');
         const since = sp.get('since');
-        const limit = Math.min(parseInt(sp.get('limit') || '200', 10), 500);
+        const limit = boundedLimit(sp.get('limit'), 200, 500);
 
         // Public visitors can only see approved shared comments
         if (!session) {
           type = 'shared';
-          status = 'approved';
         }
 
         let rows;
@@ -275,19 +277,33 @@ export function buildApi(db, secret) {
             rows = await stmts.searchComments.all(pat, pat, limit);
           }
         } else if (type && category && tag) {
-          rows = await stmts.filterCommentsTypeCatTag.all(type, category, likePattern(tag), limit);
+          rows = !session
+            ? await stmts.filterPublicTypeCatTag.all(category, likePattern(tag), limit)
+            : await stmts.filterCommentsTypeCatTag.all(type, category, likePattern(tag), limit);
         } else if (type && category) {
-          rows = await stmts.filterCommentsTypeCat.all(type, category, limit);
+          rows = !session
+            ? await stmts.filterPublicTypeCat.all(category, limit)
+            : await stmts.filterCommentsTypeCat.all(type, category, limit);
         } else if (type && tag) {
-          rows = await stmts.filterCommentsTypeTag.all(type, likePattern(tag), limit);
+          rows = !session
+            ? await stmts.filterPublicTypeTag.all(likePattern(tag), limit)
+            : await stmts.filterCommentsTypeTag.all(type, likePattern(tag), limit);
         } else if (category && tag) {
-          rows = await stmts.filterCommentsCatTag.all(category, likePattern(tag), limit);
+          rows = !session
+            ? await stmts.filterPublicCatTag.all(category, likePattern(tag), limit)
+            : await stmts.filterCommentsCatTag.all(category, likePattern(tag), limit);
         } else if (type) {
-          rows = await stmts.filterCommentsType.all(type, limit);
+          rows = !session
+            ? await stmts.listPublicComments.all(limit)
+            : await stmts.filterCommentsType.all(type, limit);
         } else if (category) {
-          rows = await stmts.filterCommentsCat.all(category, limit);
+          rows = !session
+            ? await stmts.filterPublicTypeCat.all(category, limit)
+            : await stmts.filterCommentsCat.all(category, limit);
         } else if (tag) {
-          rows = await stmts.filterCommentsTag.all(likePattern(tag), limit);
+          rows = !session
+            ? await stmts.filterPublicTag.all(likePattern(tag), limit)
+            : await stmts.filterCommentsTag.all(likePattern(tag), limit);
         } else {
           rows = !session
             ? await stmts.listPublicComments.all(limit)
@@ -446,7 +462,7 @@ export function buildApi(db, secret) {
       if (p === '/api/admin/audit' && method === 'GET') {
         const session = await requireAdmin(req, res);
         if (!session) return;
-        const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
+        const limit = boundedLimit(url.searchParams.get('limit'), 50, 100);
         const rows = await stmts.listAudit.all(limit);
         return json(res, 200, {
           audit: rows.map((r) => ({ ...r, created_at: Number(r.created_at) })),
@@ -458,7 +474,7 @@ export function buildApi(db, secret) {
         const session = await requireAuth(req, res);
         if (!session) return;
         const since = Number(url.searchParams.get('since') || '0');
-        const limit = Math.min(parseInt(url.searchParams.get('limit') || '1000', 10), 2000);
+        const limit = boundedLimit(url.searchParams.get('limit'), 1000, 2000);
         const comments = (await stmts.syncComments.all(since, limit)).map(decodeComment);
         const categories = await stmts.syncCategories.all(since, limit);
         const hasMore = comments.length === limit || categories.length === limit;
