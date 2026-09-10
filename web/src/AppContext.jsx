@@ -441,10 +441,10 @@ export function AppProvider({ children }) {
   );
 
   const [view, setView] = useState('library'); // library | recent | favorites | admin
-  const [showLogin, setShowLogin] = useState(false);
+  const [showLogin, setShowLogin] = useState(null);
   const isPublic = !session;
   const isAdmin = session?.account?.role === 'admin';
-  const showLoginPrompt = useCallback(() => setShowLogin(true), []);
+  const showLoginPrompt = useCallback((mode = 'signin') => setShowLogin({ mode }), []);
   const hideLoginPrompt = useCallback(() => setShowLogin(false), []);
   const shareApp = useCallback(async () => {
     const shareData = {
