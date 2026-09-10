@@ -22,8 +22,11 @@ export function verifyToken(secret, token) {
   const payloadB64 = token.slice(0, dot);
   const sig = token.slice(dot + 1);
   const expected = hmac(secret, payloadB64);
-  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const sigBuffer = Buffer.from(sig);
+  const expectedBuffer = Buffer.from(expected);
+  if (sigBuffer.length !== expectedBuffer.length) return null;
   try {
+    if (!timingSafeEqual(sigBuffer, expectedBuffer)) return null;
     const payload = JSON.parse(unb64(payloadB64));
     if (typeof payload.exp !== 'number' || payload.exp < Date.now()) return null;
     return payload;
