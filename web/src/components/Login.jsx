@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDiag } from '../AppContext.jsx';
 
-export default function Login({ onClose }) {
+export default function Login({ onClose, initialMode = 'signin' }) {
   const { login, loginCenter, signup, neonEnabled, toast } = useDiag();
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'center'
+  const [mode, setMode] = useState(initialMode); // 'signin' | 'signup' | 'center'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -253,44 +253,7 @@ export default function Login({ onClose }) {
           {busy && <span className="spinner" />}
           {busy ? busyLabel : goLabel}
         </button>
-        {neonEnabled && (
-          <p
-            className="mono"
-            style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 14, textAlign: 'center' }}
-          >
-            {isCenter ? (
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => {
-                  setMode('signin');
-                  setError('');
-                }}
-              >
-                ← Back to member sign-in
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => {
-                  setMode('center');
-                  setError('');
-                }}
-              >
-                Use center login instead
-              </button>
-            )}
-          </p>
-        )}
-        {import.meta.env.DEV && !neonEnabled && (
-          <p
-            className="mono"
-            style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 16, textAlign: 'center' }}
-          >
-            default dev login: diagnotes@center.local / devpassword
-          </p>
-        )}
+
       </form>
     </div>
   );

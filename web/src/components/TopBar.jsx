@@ -125,7 +125,7 @@ export default function TopBar({ onNew }) {
             <button className="btn btn-secondary btn-sm" onClick={showLoginPrompt}>
               Sign in
             </button>
-            <button className="btn btn-primary btn-sm" onClick={showLoginPrompt}>
+            <button className="btn btn-primary btn-sm" onClick={() => showLoginPrompt('signup')}>
               Sign up
             </button>
           </div>

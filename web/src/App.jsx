@@ -138,7 +138,7 @@ function Shell() {
           />
         </Suspense>
       )}
-      {showLogin && <Login onClose={hideLoginPrompt} />}
+      {showLogin && <Login initialMode={showLogin.mode} onClose={hideLoginPrompt} />}
       <Toasts />
     </div>
   );
